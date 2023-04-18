@@ -30,17 +30,63 @@ RecordID SlottedPage::add(const Dbt* data) {
     memcpy(this->address(loc), data->get_data(), size);
     return id;
 }
+//Get a record
+Dbt* SlottedPage::get(RecordID record_id){
+    u16 size = 0;
+    u16 location=0;
 
-//need to implement
-Dbt* SlottedPage::get(RecordID record_id){}
-//need to implement
-void SlottedPage::put(RecordID record_id, const Dbt &data){}
-//need to implement
-void SlottedPage::del(RecordID record_id){}
-//need to implement
-RecordIDs *SlottedPage::ids(void){}
-//need to implement
-void SlottedPage::get_header(u_int16_t &size, u_int16_t &loc, RecordID id = 0){}
+    this->get_header(size, location, record_id);
+    if(location == 0)
+        return nullptr;
+    return new Dbt(this->address(location),size);
+}
+//Put data in a record
+void SlottedPage::put(RecordID record_id, const Dbt &data){
+    u16 size=0;
+    u16 location=0;
+    this->get_header(size, location, record_id);
+    u16 new_size = (u16) data.get_size();
+    u16 extra = new_size - size;
+
+    if (new_size > size) {
+        //If there is no room for to put the new data
+        if (!this->has_room(extra))
+            throw DbBlockNoRoomError("not enough room");
+        //since data size is too big, slide records to copy the new data
+        this->slide(location, location - extra);
+        memcpy(this->address(location-extra), data.get_data(), new_size);
+    } else {
+        //since data can fit, copy the new data into the current record then slide the records
+        memcpy(this->address(location), data.get_data(), new_size);
+        this->slide(location+new_size, location+size);
+    }
+    this->put_header(record_id, new_size, location);
+}
+//Delete a record. The header (size and location) needs to be set to zero but all the record id remains the same
+void SlottedPage::del(RecordID record_id){
+    u16 size =0;
+    u16 location = 0;
+    this->get_header(size, location, record_id);
+    this->put_header(record_id, 0, 0);
+    this->slide(location, location+size);
+}
+//Return vector of all existing record ids
+RecordIDs *SlottedPage::ids(void){
+    RecordIDs* vec_ids = new RecordIDs();
+    u16 size=0;
+    u16 location =0;
+    for (RecordID record_id = 1; record_id <= this->num_records; record_id++) {
+        this->get_header(size, location, record_id);
+        if (location != 0)
+            vec_ids->push_back(record_id);
+    }
+    return vec_ids;
+}
+//Get the header (size and location) of an id
+void SlottedPage::get_header(u_int16_t &size, u_int16_t &loc, RecordID id = 0){
+    size = this->get_n((u16) 4*id);
+    location = this->get_n((u16)(4*id + 2));
+}
 
 // Store the size and offset for given id. For id of zero, store the block header.
 void SlottedPage::put_header(RecordID id, u16 size, u16 loc) {
@@ -52,10 +98,44 @@ void SlottedPage::put_header(RecordID id, u16 size, u16 loc) {
     put_n(4*id + 2, loc);
 }
 
-//need to implement
-bool SlottedPage::has_room(u_int16_t size){}
-//need to implement
-void SlottedPage::slide(u_int16_t start, u_int16_t end){}
+//Check if there is more room for the size
+bool SlottedPage::has_room(u_int16_t size){
+    u16 room_available = this->end_free - (u16)(4*(this->num_records+2));
+    return size <= room_available;
+}
+//Slide the records(and header) right (if start<end) or left (if start>end)
+void SlottedPage::slide(u_int16_t start, u_int16_t end){
+    int shift = end - start;
+    //If location is the same, there's no shift
+    if (shift == 0)
+        return;
+
+    //get the address of start and end location
+    void *to = this->address((u16)(this->end_free + 1 + shift));
+    void *from = this->address((u16)(this->end_free + 1));
+    int bytes = start - (this->end_free + 1);
+
+    char temp[bytes];
+    memcpy(temp, from, bytes);
+    memcpy(to, temp, bytes);
+
+    // After sliding, fix the header information
+    RecordIDs* vector_record_ids = this->ids();
+    u16 size=0;
+    u16 location = 0;
+    for (auto const& record_id : *vector_record_ids) {
+        get_header(size, location, record_id);
+        //change the location according to the shift
+        if (location <= start) {
+            location += shift;
+            put_header(record_id, size, loc);
+        }
+    }
+    delete vector_record_ids;
+
+    this->end_free += shift;
+    this->put_header();
+}
 
 // Get 2-byte integer at given offset in block.
 u16 SlottedPage::get_n(u16 offset) {
