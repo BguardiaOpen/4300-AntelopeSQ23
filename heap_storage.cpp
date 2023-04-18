@@ -7,6 +7,7 @@ typedef u_int16_t u16;
 /*
  * SlottedPage Class Implementation
  * */
+//SlottedPage Constructor: create a new block or get the number of records and pointer to the free memory
 SlottedPage::SlottedPage(Dbt &block, BlockID block_id, bool is_new) : DbBlock(block, block_id, is_new) {
     if (is_new) {
         this->num_records = 0;
@@ -16,15 +17,21 @@ SlottedPage::SlottedPage(Dbt &block, BlockID block_id, bool is_new) : DbBlock(bl
         get_header(this->num_records, this->end_free);
     }
 }
+
 SlottedPage::~SlottedPage() {}
+
 // Add a new record to the block. Return its id.
 RecordID SlottedPage::add(const Dbt* data) {
+    //If there is no room for the new record
     if (!has_room(data->get_size()))
         throw DbBlockNoRoomError("not enough room for new record");
+    //Otherwise add to number of records
     u16 id = ++this->num_records;
+    //Get the size of new record and add to free space
     u16 size = (u16) data->get_size();
     this->end_free -= size;
     u16 loc = this->end_free + 1;
+    //update record count, end of space pointer, and add new record header and data
     put_header();
     put_header(id, size, loc);
     memcpy(this->address(loc), data->get_data(), size);
@@ -34,18 +41,23 @@ RecordID SlottedPage::add(const Dbt* data) {
 Dbt* SlottedPage::get(RecordID record_id){
     u16 size = 0;
     u16 location=0;
-
+    //get header of the record
     this->get_header(size, location, record_id);
+    //If there's no record
     if(location == 0)
         return nullptr;
+    //otherwise return new record
     return new Dbt(this->address(location),size);
 }
 //Put data in a record
 void SlottedPage::put(RecordID record_id, const Dbt &data){
     u16 size=0;
     u16 location=0;
+    //get header of record
     this->get_header(size, location, record_id);
+    //get size of new data
     u16 new_size = (u16) data.get_size();
+    //the extra size
     u16 extra = new_size - size;
 
     if (new_size > size) {
@@ -60,14 +72,18 @@ void SlottedPage::put(RecordID record_id, const Dbt &data){
         memcpy(this->address(location), data.get_data(), new_size);
         this->slide(location+new_size, location+size);
     }
+    //Update the size and location of the record
     this->put_header(record_id, new_size, location);
 }
 //Delete a record. The header (size and location) needs to be set to zero but all the record id remains the same
 void SlottedPage::del(RecordID record_id){
     u16 size =0;
     u16 location = 0;
+    //get header of the record
     this->get_header(size, location, record_id);
+    //set the size and location of that record to 0 to indicate delete
     this->put_header(record_id, 0, 0);
+    //slide records after deleting
     this->slide(location, location+size);
 }
 //Return vector of all existing record ids
@@ -75,6 +91,7 @@ RecordIDs *SlottedPage::ids(void){
     RecordIDs* vec_ids = new RecordIDs();
     u16 size=0;
     u16 location =0;
+    //add all the record ids into our vector
     for (RecordID record_id = 1; record_id <= this->num_records; record_id++) {
         this->get_header(size, location, record_id);
         if (location != 0)
@@ -87,7 +104,6 @@ void SlottedPage::get_header(u_int16_t &size, u_int16_t &loc, RecordID id = 0){
     size = this->get_n((u16) 4*id);
     location = this->get_n((u16)(4*id + 2));
 }
-
 // Store the size and offset for given id. For id of zero, store the block header.
 void SlottedPage::put_header(RecordID id, u16 size, u16 loc) {
     if (id == 0) { // called the put_header() version and using the default params
@@ -217,22 +233,44 @@ void HeapFile::put(DbBlock* block) {
 // Iterate through all block ids.
 BlockIDs* HeapFile::block_ids() const {
     BlockIDs* vec_block_ids = new BlockIDs();
+    //add all block ids to our vector
     for (BlockID block_id = 1; block_id <= this->last; block_id++)
         vec_block_ids->push_back(block_id);
     return vec_block_ids;
 }
-u_int32_t HeapFile::get_last_block_id(){}
-void HeapFile::db_open(uint flags = 0){}
+//Return the last block
+u_int32_t HeapFile::get_last_block_id(){
+    //Set the db statistics
+    DB_BTREE_STAT stat;
+    this->db.stat(nullptr, &stat, DB_FAST_STAT);
+    return stat.bt_ndata;
+}
+void HeapFile::db_open(uint flags = 0){
+    //if heap file is already opened, don't open
+    if(!this->closed) return;
+    //otherwise set the block size and open db
+    this->db.set_re_len(DbBlock::BLOCK_SZ);
+    this->db.open(NULL, this->dbfilename.c_str(), NULL, DB_RECNO, flags, 0644);
+    //Set last block
+    if(flags == 0) {
+        this-> last =get_last_block_id();
+    } else
+        this-> last = 0;
+    //since db is open now, set closed to false
+    this->closed = false;
+}
 
 
 /*
  * HeapTable Class Implementation
  * */
+//HeapTable Constructor
 HeapTable::HeapTable(Identifier table_name, ColumnNames column_names, ColumnAttributes column_attributes):
-        DbRelation(table_name, column_names, column_attributes){
-    file(table_name);
+        DbRelation(table_name, column_names, column_attributes), file(table_name){
 }
+
 HeapTable::~HeapTable() {}
+//Create a HeapTable
 void HeapTable::create(){
     file.create();
 }
@@ -263,7 +301,58 @@ Handle HeapTable::insert(const ValueDict *row){
     Handle handle = append(this->validate(row));
     return handle;
 }
-
+Handles* HeapTable::select(const ValueDict* where) {
+    Handles* handles = new Handles();
+    BlockIDs* block_ids = file.block_ids();
+    for (auto const& block_id: *block_ids) {
+        SlottedPage* block = file.get(block_id);
+        RecordIDs* record_ids = block->ids();
+        for (auto const& record_id: *record_ids)
+            handles->push_back(Handle(block_id, record_id));
+        delete record_ids;
+        delete block;
+    }
+    delete block_ids;
+    return handles;
+}
+//Validate whether the row can be inserted and return the entire row, otherwise raise error
+ValueDict* HeapTable::validate(const ValueDict *row) {
+    ValueDict* entire_row = new ValueDict();
+    for (auto &col_name : this->column_names) {
+        Value val;
+        ValueDict::const_iterator col_iter = row->find(col_name);
+        //if iterator reaches the end
+        if (col_iter == row->end())
+            throw DbRelationError("Unable to handle certain cases");
+        //otherwise assign the value to the appropriate column name
+        else
+            val = col_iter->second;
+        (*entire_row)[col_name] = val;
+    }
+    return entire_row;
+}
+//Append a record
+Handle HeapTable::append(const ValueDict *row) {
+    //marshall row
+    Dbt* data = marshal(row);
+    SlottedPage* block = this->file.get(this->file.get_last_block_id());
+    RecordID id;
+    try {
+        //try to add data to the last block
+        id = block->add(data);
+    } catch (DbBlockNoRoomError &err) {
+        //otherwise add to a new block
+        block = this->file.get_new();
+        id = block->add(data);
+    }
+    //Append block to file
+    this->file.put(block);
+    //delete ptrs
+    delete [] (char *) data->get_data();
+    delete data;
+    delete block;
+    return Handle(this->file.get_last_block_id(), id);
+}
 // return the bits to go into the file
 // caller responsible for freeing the returned Dbt and its enclosed ret->get_data().
 Dbt* HeapTable::marshal(const ValueDict* row) {
@@ -292,20 +381,6 @@ Dbt* HeapTable::marshal(const ValueDict* row) {
     delete[] bytes;
     Dbt *data = new Dbt(right_size_bytes, offset);
     return data;
-}
-Handles* HeapTable::select(const ValueDict* where) {
-    Handles* handles = new Handles();
-    BlockIDs* block_ids = file.block_ids();
-    for (auto const& block_id: *block_ids) {
-        SlottedPage* block = file.get(block_id);
-        RecordIDs* record_ids = block->ids();
-        for (auto const& record_id: *record_ids)
-            handles->push_back(Handle(block_id, record_id));
-        delete record_ids;
-        delete block;
-    }
-    delete block_ids;
-    return handles;
 }
 // test function -- returns true if all tests pass
 bool HeapTable::test_heap_storage() {
