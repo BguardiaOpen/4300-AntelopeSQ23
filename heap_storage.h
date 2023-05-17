@@ -110,7 +110,7 @@ public:
 
     virtual void put(DbBlock *block);
 
-    virtual BlockIDs *block_ids();
+    virtual BlockIDs *block_ids() const;
 
     virtual u_int32_t get_last_block_id() { return last; }
 

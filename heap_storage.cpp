@@ -18,8 +18,6 @@ SlottedPage::SlottedPage(Dbt &block, BlockID block_id, bool is_new) : DbBlock(bl
     }
 }
 
-SlottedPage::~SlottedPage() {}
-
 // Add a new record to the block. Return its id.
 RecordID SlottedPage::add(const Dbt* data) {
     //If there is no room for the new record
@@ -100,7 +98,7 @@ RecordIDs *SlottedPage::ids(void){
     return vec_ids;
 }
 //Get the header (size and location) of an id
-void SlottedPage::get_header(u_int16_t &size, u_int16_t &loc, RecordID id = 0){
+void SlottedPage::get_header(u_int16_t &size, u_int16_t &loc, RecordID id){
     size = this->get_n((u16) 4*id);
     location = this->get_n((u16)(4*id + 2));
 }
@@ -174,7 +172,7 @@ void* SlottedPage::address(u16 offset) {
 HeapFile::HeapFile(string name) : DbFile(name), dbfilename(""), last(0), closed(true), db(_DB_ENV, 0) {
     this->dbfilename = this->name+".db";
 }
-HeapFile::~HeapFile() {}
+
 // Create file.
 void HeapFile::create(void) {
     this->db_open(DB_CREATE|DB_EXCL);
@@ -269,7 +267,6 @@ HeapTable::HeapTable(Identifier table_name, ColumnNames column_names, ColumnAttr
         DbRelation(table_name, column_names, column_attributes), file(table_name){
 }
 
-HeapTable::~HeapTable() {}
 //Create a HeapTable
 void HeapTable::create(){
     file.create();
