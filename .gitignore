@@ -1,6 +1,5 @@
 # Prerequisites
 *.d
-*.idea
 
 # Compiled Object files
 *.slo
@@ -31,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+
+# db files
+*.db
+data
