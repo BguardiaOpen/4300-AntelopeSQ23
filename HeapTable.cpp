@@ -110,6 +110,11 @@ Handles* HeapTable::select(const ValueDict* where) {
     return handles;
 }
 
+Handles *select(Handles *current_selection, const ValueDict *where){
+    cout << "not implemented" << endl;
+    return new Handles();
+}
+
 bool HeapTable::selected(Handle handle, ValueDict where) {
     ValueDict* row = this->project(handle, where);
     bool is_selected = *row == where;

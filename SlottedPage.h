@@ -40,22 +40,22 @@ public:
 
     SlottedPage &operator=(SlottedPage &temp) = delete;
 
-    virtual RecordID add(const Dbt *data);
+    virtual RecordID add(const Dbt *data) override;
 
 
-    virtual Dbt* get(RecordID record_id);
+    virtual Dbt* get(RecordID record_id) const;
 
     virtual void put(RecordID record_id, const Dbt &data);
 
     virtual void del(RecordID record_id);
 
-    virtual RecordIDs *ids(void);
+    virtual RecordIDs *ids(void) const;
 
 protected:
     u_int16_t num_records;
     u_int16_t end_free;
 
-    virtual void get_header(u_int16_t &size, u_int16_t &loc, RecordID id = 0);
+    virtual void get_header(u_int16_t &size, u_int16_t &loc, RecordID id = 0) const;
 
     virtual void put_header(RecordID id = 0, u_int16_t size = 0, u_int16_t loc = 0);
 
@@ -63,10 +63,10 @@ protected:
 
     virtual void slide(u_int16_t start, u_int16_t end);
 
-    virtual u_int16_t get_n(u_int16_t offset);
+    virtual u_int16_t get_n(u_int16_t offset) const;
 
     virtual void put_n(u_int16_t offset, u_int16_t n);
 
-    virtual void *address(u_int16_t offset);
+    virtual void *address(u_int16_t offset) const;
 };
 

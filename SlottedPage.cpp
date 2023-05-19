@@ -35,7 +35,7 @@ RecordID SlottedPage::add(const Dbt* data) {
 }
 
 //Given a record ID, get the bits stored in that record
-Dbt *SlottedPage::get(RecordID record_id) {
+Dbt *SlottedPage::get(RecordID record_id) const{
     u16 size, location;
     get_header(size, location, record_id);
     if(location == 0)
@@ -71,11 +71,11 @@ void SlottedPage::del(RecordID record_id){
     this->slide(location, location + size);
 }
 //This method returns all of the ids containted within the object.
-RecordIDs *SlottedPage::ids(){
+RecordIDs *SlottedPage::ids() const{
 	u16 size,loc;
 	RecordIDs* idsets = new RecordIDs();
 	for (u16 i = 1; i <= this->num_records; i++) {
-		get_header(size, loc, i);
+		this->get_header(size, loc, i);
 		if (loc > 0) {
 			idsets->push_back(i);
 		}
@@ -86,7 +86,7 @@ RecordIDs *SlottedPage::ids(){
 
 
 //Pass by reference, so size and location are changed to the values held at record_id.  The +2 is the offset.
-void SlottedPage::get_header(u16 &size, u16 &loc, RecordID id) {
+void SlottedPage::get_header(u16 &size, u16 &loc, RecordID id) const{
     size = get_n((u16)4*id);
     loc = get_n((u16)(4*id+2));
 }
@@ -102,7 +102,7 @@ void SlottedPage::put_header(RecordID id, u16 size, u16 loc){
 }
 
 // Get 2-byte integer at given offset in block.
-u16 SlottedPage::get_n(u16 offset) {
+u16 SlottedPage::get_n(u16 offset) const{
     return *(u16*)this->address(offset);
 }
 
@@ -112,7 +112,7 @@ void SlottedPage::put_n(u16 offset, u16 n) {
 }
 
 // Make a void* pointer for a given offset into the data block.
-void* SlottedPage::address(u16 offset) {
+void* SlottedPage::address(u_int16_t offset) const{
     return (void*)((char*)this->block.get_data() + offset);
 }
 

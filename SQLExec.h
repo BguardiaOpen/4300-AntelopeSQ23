@@ -10,6 +10,8 @@
 #include "SQLParser.h"
 #include "SchemaTables.h"
 
+const string SUCCESS_MESSAGE = "Successful query result"; // message to return in a QueryResult when it's successful
+
 /**
  * @class SQLExecError - exception for SQLExec methods
  */
@@ -83,6 +85,12 @@ protected:
     static QueryResult *drop_index(const hsql::DropStatement *statement);
 
     static QueryResult *show_index(const hsql::ShowStatement *statement);
+
+    static QueryResult *insert(const hsql::InsertStatement *statement);
+
+    static QueryResult *del(const hsql::DeleteStatement *statement);
+
+    static QueryResult *select(const hsql::SelectStatement *statement);
 
     /**
      * Pull out column name and attributes from AST's column definition clause
