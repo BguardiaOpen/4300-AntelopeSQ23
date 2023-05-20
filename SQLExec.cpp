@@ -444,43 +444,80 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement) {
 // Useful methods here are get_table, get_index_names, get_index. Make sure you account for the fact that the user has the 
 // ability to list column names in a different order than the table definition. 
 QueryResult *SQLExec::insert(const InsertStatement *statement) {
-    // TODO: check if the table exists
+    // check if the table exists
+    ValueDict where;
+    where["table_name"] = Value(statement->tableName);
+    Handles* tableHandles = tables->select(&where);
+
+    if(tableHandles->empty()){
+        delete tableHandles;
+        tableHandles = nullptr;
+        return new QueryResult("Error: table does not exist");
+    }
+
+    delete tableHandles; 
+    tableHandles = nullptr;
+
     // construct the ValueDict, making sure it's in the same order as the order of columns in the table
     ValueDict rowToInsert;
     ColumnNames colNames; // column names for the table that the row will be inserted into
     ColumnAttributes colAttributes; // column attributes of that table
+    Expr* expr; // expressions for the values in the statement
     Value valueToInsert;
-
-    cout << "in insert" << endl;
 
     // get the order of the columns in the table 
     tables->get_columns(statement->tableName, colNames, colAttributes);
 
-    for(unsigned int i=0; i < colNames.size(); i++){
-        // for column i in the table, find the index position of that column in statement->columns.
-        // find() returns an iterator to the position where colNames[i] appears in statement->columns
-        vector<char*>::iterator it = find(statement->columns->begin(), statement->columns->end(), colNames[i]);
+    // if there's no list of columns specified, the order is the same as the order of columns in the table
+    if(statement->columns == nullptr){
+        for(unsigned int i=0; i < statement->values->size(); i++){
+            expr = statement->values->at(i);
 
-        // get the index of column i in the statement. distance() returns the number of increments/"hops" between two iterators.
-        // The distance between columns.begin() and it is the same as the index position of it.
-        // The index position of it in columns corresponds to the same index position in values, so we can use it as an index for values
-        int indexInStatement = distance(statement->columns->begin(), it);
+            // convert the literal string or int from statement->values into a Value type
+            if((expr->type == ExprType::kExprLiteralInt))
+                valueToInsert = Value(expr->ival); 
+            if((expr->type == ExprType::kExprLiteralString))
+                valueToInsert = Value(expr->getName());
 
-        // convert the literal string or int from statement->values into a Value type
-        if((statement->values->at(indexInStatement)->type == ExprType::kExprLiteralInt))
-            valueToInsert = Value(statement->values->at(indexInStatement)->ival); 
-        if((statement->values->at(indexInStatement)->type == ExprType::kExprLiteralString))
-            valueToInsert = Value(statement->values->at(indexInStatement)->getName());
+            // add the pair to the end of rowToInsert in the right order
+            rowToInsert.insert(rowToInsert.end(), {colNames[i], valueToInsert});
+        }
+    }
+    else{
+        for(unsigned int i=0; i < colNames.size(); i++){
+            // for column i in the table, find the index position of that column in statement->columns.
+            // find() returns an iterator to the position where colNames[i] appears in statement->columns
+            vector<char*>::iterator it = find(statement->columns->begin(), statement->columns->end(), colNames[i]);
 
-        // add the pair to the end of rowToInsert in the right order
-        rowToInsert.insert(rowToInsert.end(), {colNames[i], valueToInsert});
+            // get the index of column i in the statement. distance() returns the number of increments/"hops" between two iterators.
+            // The distance between columns.begin() and it is the same as the index position of it.
+            // The index position of it in columns corresponds to the same index position in values, so we can use it as an index for values
+            int indexInStatement = distance(statement->columns->begin(), it);
+
+            expr = statement->values->at(indexInStatement);
+
+            // convert the literal string or int from statement->values into a Value type
+            if((expr->type == ExprType::kExprLiteralInt))
+                valueToInsert = Value(expr->ival); 
+            if((expr->type == ExprType::kExprLiteralString))
+                valueToInsert = Value(expr->getName());
+
+            // add the pair to the end of rowToInsert in the right order
+            rowToInsert.insert(rowToInsert.end(), {colNames[i], valueToInsert});
+            cout << "end of iteration"<<endl;
+        }
     }
 
-    cout << "out of loop" << endl;
+    cout << "Row to insert: ";
+    for(auto elem : rowToInsert) {
+    cout << elem.first << ", " 
+         << (elem.second.data_type == ColumnAttribute::DataType::INT ? to_string(elem.second.n) :
+            elem.second.s) << " | ";
+    }
+    
 
     // insert the row into the table
     DbRelation& table = tables->get_table(statement->tableName);
-    // table.open();
     table.insert(&rowToInsert);
 
     // insert into any indices
@@ -492,7 +529,6 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
         for(string indexName : indexNames){
             // don't need to check if the index exists since it's in indexNames
             DbIndex& index = indices->get_index(statement->tableName, indexName);
-            // index.open();
 
             // to insert into the index, need to get a handle to the row to insert, so call select 
             // on the row just inserted.
@@ -506,11 +542,7 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
         }
     }
 
-    ValueDicts* rows = new ValueDicts();
-    rows->push_back(&rowToInsert); // the ValueDicts result should only have 1 row since we inserted 1 row
-
-    cout << "returning" << endl;
-    return new QueryResult(&colNames, &colAttributes, rows, SUCCESS_MESSAGE);
+    return new QueryResult(SUCCESS_MESSAGE);
 }
 
 QueryResult *SQLExec::del(const DeleteStatement *statement) {
