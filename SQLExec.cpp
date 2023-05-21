@@ -6,6 +6,7 @@
 #include "SQLExec.h"
 #include "ParseTreeToString.h"
 #include "SchemaTables.h"
+#include "EvalPlan.h"
 #include <iostream>
 
 using namespace std;
@@ -127,124 +128,102 @@ void SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_
 QueryResult *SQLExec::create(const CreateStatement *statement) {
     //check create type (future proofed for other types)
     switch(statement->type) {
+        // ATTRIBUTION: we copied create table from Prof. Lundeen's solution repo
         case CreateStatement::kTable: 
-            //blocked to prevent scoping issues in the try catch
             { 
-                //add columns to table
-                Identifier name = statement->tableName;
-                Identifier colName;
-                ColumnNames colNames;
-                ColumnAttribute colAttribute;
-                ColumnAttributes colAttributes;
+                Identifier table_name = statement->tableName;
+    ColumnNames column_names;
+    ColumnAttributes column_attributes;
+    Identifier column_name;
+    ColumnAttribute column_attribute;
+    for (ColumnDefinition *col : *statement->columns) {
+        column_definition(col, column_name, column_attribute);
+        column_names.push_back(column_name);
+        column_attributes.push_back(column_attribute);
+    }
 
-                for(ColumnDefinition *col : *statement->columns) {
-                    //ColumnAttribute colAttribute(ColumnAttribute::INT);
-                    //create a column binding for column to a name and attribute and add
-                    //to colNames and colAttributes
-                    column_definition(col, colName, colAttribute);
-                    colNames.push_back(colName);
-                    colAttributes.push_back(colAttribute);
-                }
-
-                //insert an empty row into the new table to instantiate change
-                ValueDict row;
-                row["table_name"] = name;
-                Handle handle = SQLExec::tables->insert(&row);
-                try {
-                    Handles handleList;
-                    DbRelation &cols = SQLExec::tables->get_table(Columns::TABLE_NAME);
-                    try {
-                        //add columns to schema, and remove existing on error
-                        for(uint index = 0; index < colNames.size(); index++) {
-                            row["column_name"] = colNames[index];
-                            //add type of column appropriately
-                            if(colAttributes[index].get_data_type() == ColumnAttribute::INT)
-                                row["data_type"] = Value("INT");
-                            else    
-                                row["data_type"] = Value("TEXT");
-                            handleList.push_back(cols.insert(&row));
-                        }
-
-                        //create actual relation in system, accounting for prexistence
-                        DbRelation &table = SQLExec::tables->get_table(name);
-                        if(statement->ifNotExists) {;
-                            table.create_if_not_exists();
-                        } else {
-                            table.create();
-                        }
-
-                    } catch(exception &e) {
-                        try {
-                            //delete remaining handles
-                            for(auto const &handle : handleList) 
-                                cols.del(handle);
-                        } catch (...) {
-                        //...doesn't really matter if there's an error, 
-                        //just need to try to delete the handle if it exists
-                        }
-                        return new QueryResult(e.what()); 
-                    }
-                } catch(exception &e) {
-                    //delete the handle
-                    try {
-                        SQLExec::tables->del(handle);
-                    } catch (...) {
-                        //...doesn't really matter if there's an error, 
-                        //just need to try to delete the handle if it exists
-                    }
-                    return new QueryResult(e.what()); 
-                }
-                return new QueryResult("Table " + name + " created successfully");
+    // Add to schema: _tables and _columns
+    ValueDict row;
+    row["table_name"] = table_name;
+    Handle t_handle = SQLExec::tables->insert(&row);  // Insert into _tables
+    try {
+        Handles c_handles;
+        DbRelation &columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
+        try {
+            for (uint i = 0; i < column_names.size(); i++) {
+                row["column_name"] = column_names[i];
+                row["data_type"] = Value(column_attributes[i].get_data_type() == ColumnAttribute::INT ? "INT" : "TEXT");
+                c_handles.push_back(columns.insert(&row));  // Insert into _columns
             }
+
+            // Finally, actually create the relation
+            DbRelation &table = SQLExec::tables->get_table(table_name);
+            if (statement->ifNotExists)
+                table.create_if_not_exists();
+            else
+                table.create();
+
+        } catch (...) {
+            // attempt to remove from _columns
+            try {
+                for (auto const &handle: c_handles)
+                    columns.del(handle);
+            } catch (...) {}
+            throw;
+        }
+
+    } catch (exception &e) {
+        try {
+            // attempt to remove from _tables
+            SQLExec::tables->del(t_handle);
+        } catch (...) {}
+        throw;
+    }
+    return new QueryResult("created " + table_name);
+            }
+            // ATTRIBUTION: We copied the following code for CREATE INDEX from
+            // the Milestone 4 tag of Prof. Lundeen's solution repository
         case CreateStatement::kIndex:
             {
-                Identifier tableName = statement->tableName;
-                Identifier indexName = statement->indexName;
+                Identifier index_name = statement->indexName;
+                Identifier table_name = statement->tableName;
 
-                DbRelation &table = SQLExec::tables->get_table(tableName);
-                const ColumnNames &cols = table.get_column_names();
+                // get underlying relation
+                DbRelation &table = SQLExec::tables->get_table(table_name);
 
-                // make sure columns in index are actually in table
-                for (auto const &colName : *statement->indexColumns) {
-                    if (find(cols.begin(), cols.end(), colName) == cols.end())
-                        throw SQLExecError("Index column does not exist in table");
-                }
+                // check that given columns exist in table
+                const ColumnNames &table_columns = table.get_column_names();
+                for (auto const &col_name: *statement->indexColumns)
+                    if (std::find(table_columns.begin(), table_columns.end(), col_name) == table_columns.end())
+                        throw SQLExecError(std::string("Column '") + col_name + "' does not exist in " + table_name);
 
-                // add index to indices table
+                // insert a row for every column in index into _indices
                 ValueDict row;
-                row["table_name"] = Value(tableName);
-                row["index_name"] = Value(indexName);
+                row["table_name"] = Value(table_name);
+                row["index_name"] = Value(index_name);
                 row["index_type"] = Value(statement->indexType);
-                if (string(statement->indexType) == "BTREE")
-                    row["is_unique"] = Value("true");
-                else
-                    row["is_unique"] = Value("false");
-
-                Handles handleList;
+                row["is_unique"] = Value(std::string(statement->indexType) == "BTREE"); // assume HASH is non-unique --
+                int seq = 0;
+                Handles i_handles;
                 try {
-                    int count = 0;
-                    
-                    for (auto const &colName : *statement->indexColumns) {
-                        row["seq_in_index"] = Value(count);
-                        row["column_name"] = Value(colName);
-                        count++;
-                        handleList.push_back(SQLExec::indices->insert(&row));
+                    for (auto const &col_name: *statement->indexColumns) {
+                        row["seq_in_index"] = Value(++seq);
+                        row["column_name"] = Value(col_name);
+                        i_handles.push_back(SQLExec::indices->insert(&row));
                     }
 
-                    DbIndex &index = SQLExec::indices->get_index(tableName, indexName);
+                    DbIndex &index = SQLExec::indices->get_index(table_name, index_name);
                     index.create();
-                }
-                catch (...) {
-                    try {
-                        for (auto const &handle : handleList)
+
+                } catch (...) {
+                    // attempt to remove from _indices
+                    try {  // if any exception happens in the reversal below, we still want to re-throw the original ex
+                        for (auto const &handle: i_handles)
                             SQLExec::indices->del(handle);
-                    } catch (...) {
-                        
-                    }
-                    return new QueryResult("Index could not be created");
+                    } catch (...) {}
+                    throw;  // re-throw the original exception (which should give the client some clue as to why it did
                 }
-                
-                return new QueryResult("Index successfully created");
+                return new QueryResult("created index " + index_name);
             }
         default: 
             return new QueryResult("Only CREATE TABLE and CREATE INDEX supported"); 
@@ -439,24 +418,21 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement) {
 
 
 // Preconditions: 1) user must specify a value for each column, i.e. there are no nullable columns
-//                2) the values being inserted can only be literal strings or integers (hsql doesn't support booleans)
-// For insert, your job is to construct the ValueDict row to insert and insert it. Also, make sure to add to any indices. 
-// Useful methods here are get_table, get_index_names, get_index. Make sure you account for the fact that the user has the 
-// ability to list column names in a different order than the table definition. 
+//                2) only supports int and text;
+//                   the values being inserted can only be literal strings or integers (hsql doesn't support booleans)
 QueryResult *SQLExec::insert(const InsertStatement *statement) {
     // check if the table exists
     ValueDict where;
     where["table_name"] = Value(statement->tableName);
-    Handles* tableHandles = tables->select(&where);
+    Handles* handles = tables->select(&where);
 
-    if(tableHandles->empty()){
-        delete tableHandles;
-        tableHandles = nullptr;
+    if(handles->empty()){
+        delete handles;
+        handles = nullptr;
         return new QueryResult("Error: table does not exist");
     }
 
-    delete tableHandles; 
-    tableHandles = nullptr;
+    delete handles; 
 
     // construct the ValueDict, making sure it's in the same order as the order of columns in the table
     ValueDict rowToInsert;
@@ -464,6 +440,7 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
     ColumnAttributes colAttributes; // column attributes of that table
     Expr* expr; // expressions for the values in the statement
     Value valueToInsert;
+    string message = "Successfully inserted 1 row into table "; // message returned in QueryResult
 
     // get the order of the columns in the table 
     tables->get_columns(statement->tableName, colNames, colAttributes);
@@ -483,7 +460,7 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
             rowToInsert.insert(rowToInsert.end(), {colNames[i], valueToInsert});
         }
     }
-    else{
+    else{ // otherwise, construct the ValueDict in the right order
         for(unsigned int i=0; i < colNames.size(); i++){
             // for column i in the table, find the index position of that column in statement->columns.
             // find() returns an iterator to the position where colNames[i] appears in statement->columns
@@ -514,16 +491,25 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
          << (elem.second.data_type == ColumnAttribute::DataType::INT ? to_string(elem.second.n) :
             elem.second.s) << " | ";
     }
-    
 
     // insert the row into the table
-    DbRelation& table = tables->get_table(statement->tableName);
+    DbRelation& table = tables->get_table(statement->tableName); // the relation for the table
+
+    // check if the row already exists in the table    
+    handles = table.select(&rowToInsert);
+    if(!handles->empty()){
+        delete handles;
+        return new QueryResult("Error: The row already exists in the table");
+    }
+
+    delete handles;
     table.insert(&rowToInsert);
 
     // insert into any indices
     IndexNames indexNames = indices->get_index_names(statement->tableName);
+    int numIndices = indexNames.size();
 
-    if(!indexNames.empty()){
+    if(numIndices > 0){
         ValueDict indexRowToInsert; // the row to insert into _indices
 
         for(string indexName : indexNames){
@@ -533,22 +519,58 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
             // to insert into the index, need to get a handle to the row to insert, so call select 
             // on the row just inserted.
             // use rowToInsert as the where condition since it already specifies the values
-            Handles* handles = table.select(&rowToInsert);
+            handles = table.select(&rowToInsert);
 
             // handles should contain only one row
             index.insert((*handles)[0]);
             delete handles;
-            handles = nullptr;
         }
     }
 
-    return new QueryResult(SUCCESS_MESSAGE);
+    handles = nullptr;
+
+    // we had to add each substring individually since there were compilation errors because the data types were different
+    message += statement->tableName;
+    if(numIndices > 0){
+        message += " and ";
+        message += to_string(numIndices);
+        message += (numIndices == 1 ? " index" : " indices");
+    }
+
+    return new QueryResult(message);
 }
 
 QueryResult *SQLExec::del(const DeleteStatement *statement) {
     return new QueryResult("DELETE statement not yet implemented");  // FIXME
 }
 
+// The SELECT should translate into an evaluation plan with a projection 
+// plan on a select plan. The enclosed select plan should be annotated with a table scan.
+// For select, your job is to create an evaluation plan and execute it. Start the plan 
+// with a TableScan:
+ 
+// Note that we then wrap that in a Select plan. The get_where_conjunction is just a 
+// local recursive 
+// function that pulls apart the parse tree to pull out any equality predicates and 
+// AND operations (other conditions throw an exception). Next we would wrap the 
+// whole thing in either a ProjectAll or a Project. Note that I've added a new method 
+// to DbRelation, get_column_attributes(ColumnNames) that will get the attributes (for
+//  returning in the QueryResults) based on the projected column names.
+// Next we optimize the plan and evaluate it to get our results for the user.
+
+// Precondition: for now, no nested queries/select statements; you can only select from a table.
 QueryResult *SQLExec::select(const SelectStatement *statement) {
+    // throw an error if statement->fromTable is not a table name
+    if(statement->fromTable->type != TableRefType::kTableName)
+        return new QueryResult("Error: only selecting from a single table is supported");
+
+    
+    DbRelation& table = tables->get_table(statement->fromTable->getName()); // get the DbRelation for the table
+    EvalPlan tableScan = EvalPlan(table); // start with table scan
+
+    // we can leave select_conjunction blank since no WHERE is needed for MS5
+    EvalPlan selection = EvalPlan(ValueDict(), tableScan); // need to turn the where condition into a ValueDict
+    
+    
     return new QueryResult("SELECT statement not yet implemented");  // FIXME
 }

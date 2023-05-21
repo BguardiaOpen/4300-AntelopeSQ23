@@ -190,27 +190,40 @@ Handle HeapTable::append(const ValueDict *row) {
     return Handle(this->file.get_last_block_id(), record_id);
 }
 
+// ATTRIBUTION: we copied marshal() from Prof. Lundeen's solution repo
 // return the bits to go into the file
 // caller responsible for freeing the returned Dbt and its enclosed ret->get_data().
-Dbt* HeapTable::marshal(const ValueDict* row) {
+Dbt *HeapTable::marshal(const ValueDict *row) {
     char *bytes = new char[DbBlock::BLOCK_SZ]; // more than we need (we insist that one row fits into DbBlock::BLOCK_SZ)
     uint offset = 0;
     uint col_num = 0;
-    for (auto const& column_name: this->column_names) {
+    for (auto const &column_name: this->column_names) {
         ColumnAttribute ca = this->column_attributes[col_num++];
         ValueDict::const_iterator column = row->find(column_name);
         Value value = column->second;
+
         if (ca.get_data_type() == ColumnAttribute::DataType::INT) {
-            *(int32_t*) (bytes + offset) = value.n;
+            if (offset + 4 > DbBlock::BLOCK_SZ - 4)
+                throw DbRelationError("row too big to marshal");
+            *(int32_t *) (bytes + offset) = value.n;
             offset += sizeof(int32_t);
         } else if (ca.get_data_type() == ColumnAttribute::DataType::TEXT) {
-            uint size = value.s.length();
-            *(u16*) (bytes + offset) = size;
+            u_long size = value.s.length();
+            if (size > UINT16_MAX)
+                throw DbRelationError("text field too long to marshal");
+            if (offset + 2 + size > DbBlock::BLOCK_SZ)
+                throw DbRelationError("row too big to marshal");
+            *(u16 *) (bytes + offset) = size;
             offset += sizeof(u16);
-            memcpy(bytes+offset, value.s.c_str(), size); // assume ascii for now
+            memcpy(bytes + offset, value.s.c_str(), size); // assume ascii for now
             offset += size;
+        } else if (ca.get_data_type() == ColumnAttribute::DataType::BOOLEAN) {
+            if (offset + 1 > DbBlock::BLOCK_SZ - 1)
+                throw DbRelationError("row too big to marshal");
+            *(uint8_t *) (bytes + offset) = (uint8_t) value.n;
+            offset += sizeof(uint8_t);
         } else {
-            throw DbRelationError("Only know how to marshal INT and TEXT");
+            throw DbRelationError("Only know how to marshal INT, TEXT, and BOOLEAN");
         }
     }
     char *right_size_bytes = new char[offset];
@@ -220,26 +233,34 @@ Dbt* HeapTable::marshal(const ValueDict* row) {
     return data;
 }
 
-ValueDict* HeapTable::unmarshal(Dbt* data) {
-    ValueDict* row = new ValueDict();
-    char* bytes = (char*)data->get_data();
+// ATTRIBUTION: we copied unmarshal from Prof. Lundeen's solution repo
+ValueDict *HeapTable::unmarshal(Dbt *data) {
+    ValueDict *row = new ValueDict();
+    Value value;
+    char *bytes = (char *) data->get_data();
     uint offset = 0;
     uint col_num = 0;
-    for (const Identifier &column_name : this->column_names) {
+    for (auto const &column_name: this->column_names) {
         ColumnAttribute ca = this->column_attributes[col_num++];
+        value.data_type = ca.get_data_type();
         if (ca.get_data_type() == ColumnAttribute::DataType::INT) {
-            Value value = Value(*(u32*)(bytes + offset));
-            (*row)[column_name] = value;
-            offset += sizeof(u32);
+            value.n = *(int32_t *) (bytes + offset);
+            offset += sizeof(int32_t);
         } else if (ca.get_data_type() == ColumnAttribute::DataType::TEXT) {
-            u16 size = *(u16*)(bytes + offset);
+            u16 size = *(u16 *) (bytes + offset);
             offset += sizeof(u16);
-            Value value(std::string(bytes + offset, size));
-            (*row)[column_name] = value;
+            char buffer[DbBlock::BLOCK_SZ];
+            memcpy(buffer, bytes + offset, size);
+            buffer[size] = '\0';
+            value.s = string(buffer);  // assume ascii for now
             offset += size;
+        } else if (ca.get_data_type() == ColumnAttribute::DataType::BOOLEAN) {
+            value.n = *(uint8_t *) (bytes + offset);
+            offset += sizeof(uint8_t);
         } else {
-            throw DbRelationError("Only know how to unmarshal INT and TEXT");
+            throw DbRelationError("Only know how to unmarshal INT, TEXT, and BOOLEAN");
         }
+        (*row)[column_name] = value;
     }
     return row;
 }
