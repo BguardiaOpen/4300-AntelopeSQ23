@@ -541,6 +541,15 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
 }
 
 QueryResult *SQLExec::del(const DeleteStatement *statement) {
+    Identifier* tableName = statement->tableName;
+    DbRelation& table = tables->get_table(table_name);
+    
+    ValueDict where = {{"table_name", Value(table_name)}};
+    Handles* data = SQLExec::tables->select(&where);
+    if(data->empty()) {
+        throw SQLExecError("Table does not exist");
+    }
+    
     return new QueryResult("DELETE statement not yet implemented");  // FIXME
 }
 
