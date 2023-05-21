@@ -542,15 +542,39 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
 
 QueryResult *SQLExec::del(const DeleteStatement *statement) {
     Identifier* tableName = statement->tableName;
-    DbRelation& table = tables->get_table(table_name);
     
+    // error checking for table
     ValueDict where = {{"table_name", Value(table_name)}};
-    Handles* data = SQLExec::tables->select(&where);
-    if(data->empty()) {
+    Handles* h1 = SQLExec::tables->select(&where);
+    if(h1->empty()) {
         throw SQLExecError("Table does not exist");
     }
     
-    return new QueryResult("DELETE statement not yet implemented");  // FIXME
+    // obtaining table and creating evaluation plan
+    DbRelation& table = SQLExec::tables->get_table(table_name);
+    EvalPlan* plan = new EvalPlan(table);
+    
+    // checking if statement exists
+    if(statement->expr != nullptr)
+    {
+        plan = new EvalPlan(get_where_conjunction(statement->expr), plan);
+    }
+    plan->optimize();
+    
+    // Removal of tuples from table and indices
+    Handles* removal = plan->pipeline().second;
+    IndexNames names = SQLExec::indices->get_index_names(tableName);
+    for(Handle &h : *removal)
+    {
+        for(Identifier &indexName : indices)
+        {
+            DbIndex &index = SQLExec::indices->get_index(tableName, indexName);
+            index.del(h);
+        }
+        table.del(h);
+    }
+    
+    return new QueryResult(to_string(removal->size()) + " rows deleted from table : " + table_name);  // FIXME
 }
 
 // The SELECT should translate into an evaluation plan with a projection 
