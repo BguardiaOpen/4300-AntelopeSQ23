@@ -86,13 +86,14 @@ EvalPlan *EvalPlan::optimize() {
     return new EvalPlan(this);  // For now, we don't know how to do anything better
 }
 
-ValueDicts *EvalPlan::evaluate() {
-    ValueDicts *ret = nullptr;
+// changed since it wouldn't compile
+ValueDicts EvalPlan::evaluate() {
+    ValueDicts ret;
     if (this->type != ProjectAll && this->type != Project)
         throw DbRelationError("Invalid evaluation plan--not ending with a projection");
 
     EvalPipeline pipeline = this->relation->pipeline();
-    DbRelation *temp_table = pipeline.first;
+    Dummy *temp_table = (Dummy*)pipeline.first;
     Handles *handles = pipeline.second;
     if (this->type == ProjectAll)
         ret = temp_table->project(handles);
@@ -112,9 +113,9 @@ EvalPipeline EvalPlan::pipeline() {
     // recursive case
     if (this->type == Select) {
         EvalPipeline pipeline = this->relation->pipeline();
-        DbRelation *temp_table = pipeline.first;
+        Dummy *temp_table = (Dummy*)pipeline.first;
         Handles *handles = pipeline.second;
-        EvalPipeline ret(temp_table, temp_table->select(handles, this->select_conjunction));
+        EvalPipeline ret(temp_table, (temp_table)->select(handles, this->select_conjunction));
         delete handles;
         return ret;
     }

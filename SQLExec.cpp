@@ -569,8 +569,43 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     EvalPlan tableScan = EvalPlan(table); // start with table scan
 
     // we can leave select_conjunction blank since no WHERE is needed for MS5
-    EvalPlan selection = EvalPlan(ValueDict(), tableScan); // need to turn the where condition into a ValueDict
-    
-    
-    return new QueryResult("SELECT statement not yet implemented");  // FIXME
+    ValueDict emptyDict;
+    EvalPlan selection = EvalPlan(&emptyDict, &tableScan);
+
+    // determine whether all columns are being selected or only some
+    ColumnNames colsToSelect;
+    ColumnAttributes colAttrs;
+    bool selectAllColumns = false; // whether all columns are selected
+
+    // get list of columns to project or "*"    
+    for(long unsigned int i = 0; i < statement->selectList->size(); i++){
+        Expr* expr = (*statement->selectList)[i];
+        hsql::ExprType exprType = expr->type; // type of expression
+
+        // assume the only types can be kExprStar and kExprColumnRef for now
+        // if the statement is "SELECT *", then the length of the select list would be 1.
+        // otherwise, get all column names.
+        if(exprType == kExprStar)
+            selectAllColumns = true;
+        else
+            colsToSelect.push_back(expr->getName());
+    }
+
+    // re-declaring variables since there's no empty ctor or assignment operator for EvalPlan
+    if(selectAllColumns){
+        EvalPlan projection = EvalPlan(EvalPlan::ProjectAll, &selection);
+        Identifier tableName = statement->fromTable->getName(); // name of table to select from
+        EvalPlan optimizedPlan = projection.optimize();
+        ValueDicts result = optimizedPlan.evaluate();
+
+        tables->get_columns(tableName, colsToSelect, colAttrs); // get all column names since we didn't get them in the loop
+
+        return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);
+    }
+        
+    EvalPlan projection = EvalPlan(&colsToSelect, &selection);
+    colAttrs = tables->get_column_attributes((const ColumnNames)colsToSelect);
+    EvalPlan optimizedPlan = projection.optimize();
+    ValueDicts result = optimizedPlan.evaluate();
+    return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);
 }

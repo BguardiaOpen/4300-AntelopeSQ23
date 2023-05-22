@@ -28,7 +28,7 @@ public:
     EvalPlan *optimize();
 
     // Evaluate the plan: evaluate gets values, pipeline gets handles
-    ValueDicts *evaluate();
+    ValueDicts evaluate();
 
     EvalPipeline pipeline();
 
