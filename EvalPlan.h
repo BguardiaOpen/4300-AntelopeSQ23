@@ -19,9 +19,8 @@ public:
 
     EvalPlan(PlanType type, EvalPlan *relation);  // use for ProjectAll, e.g., EvalPlan(EvalPlan::ProjectAll, table);
     EvalPlan(ColumnNames *projection, EvalPlan *relation); // use for Project
-    EvalPlan(ValueDict *conjunction, EvalPlan *relation);  // use for Select
+    EvalPlan(EvalPlan *relation);  // use for Select
     EvalPlan(DbRelation &table);  // use for TableScan
-    EvalPlan(const EvalPlan *other);  // use for copying
     virtual ~EvalPlan();
 
     // Attempt to get the best equivalent evaluation plan
@@ -33,11 +32,9 @@ public:
     EvalPipeline pipeline();
 
 protected:
-
     PlanType type;
     EvalPlan *relation;  // for everything except TableScan
     ColumnNames *projection;  // for Project
-    ValueDict *select_conjunction;  // for Select
     DbRelation &table;  // for TableScan
 };
 

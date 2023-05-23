@@ -7,6 +7,7 @@
 #include "ParseTreeToString.h"
 #include "SchemaTables.h"
 #include "EvalPlan.h"
+#include "storage_engine.h"
 #include <iostream>
 
 using namespace std;
@@ -540,43 +541,6 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
     return new QueryResult(message);
 }
 
-QueryResult *SQLExec::del(const DeleteStatement *statement) {
-    Identifier* tableName = statement->tableName;
-    
-    // error checking for table
-    ValueDict where = {{"table_name", Value(table_name)}};
-    Handles* h1 = SQLExec::tables->select(&where);
-    if(h1->empty()) {
-        throw SQLExecError("Table does not exist");
-    }
-    
-    // obtaining table and creating evaluation plan
-    DbRelation& table = SQLExec::tables->get_table(table_name);
-    EvalPlan* plan = new EvalPlan(table);
-    
-    // checking if statement exists
-    if(statement->expr != nullptr)
-    {
-        plan = new EvalPlan(get_where_conjunction(statement->expr), plan);
-    }
-    plan->optimize();
-    
-    // Removal of tuples from table and indices
-    Handles* removal = plan->pipeline().second;
-    IndexNames names = SQLExec::indices->get_index_names(tableName);
-    for(Handle &h : *removal)
-    {
-        for(Identifier &indexName : indices)
-        {
-            DbIndex &index = SQLExec::indices->get_index(tableName, indexName);
-            index.del(h);
-        }
-        table.del(h);
-    }
-    
-    return new QueryResult(to_string(removal->size()) + " rows deleted from table : " + table_name);  // FIXME
-}
-
 // The SELECT should translate into an evaluation plan with a projection 
 // plan on a select plan. The enclosed select plan should be annotated with a table scan.
 // For select, your job is to create an evaluation plan and execute it. Start the plan 
@@ -597,13 +561,9 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     if(statement->fromTable->type != TableRefType::kTableName)
         return new QueryResult("Error: only selecting from a single table is supported");
 
-    
     DbRelation& table = tables->get_table(statement->fromTable->getName()); // get the DbRelation for the table
     EvalPlan tableScan = EvalPlan(table); // start with table scan
-
-    // we can leave select_conjunction blank since no WHERE is needed for MS5
-    ValueDict emptyDict;
-    EvalPlan selection = EvalPlan(&emptyDict, &tableScan);
+    EvalPlan selection = EvalPlan(&tableScan);
 
     // determine whether all columns are being selected or only some
     ColumnNames colsToSelect;
@@ -637,7 +597,7 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     }
         
     EvalPlan projection = EvalPlan(&colsToSelect, &selection);
-    colAttrs = tables->get_column_attributes((const ColumnNames)colsToSelect);
+    colAttrs = tables->get_column_attributes(colsToSelect);
     EvalPlan optimizedPlan = projection.optimize();
     ValueDicts result = optimizedPlan.evaluate();
     return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);

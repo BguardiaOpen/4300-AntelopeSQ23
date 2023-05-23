@@ -6,15 +6,17 @@
 
 #include "EvalPlan.h"
 
-
-class Dummy : public DbRelation {
+// To use as a placeholder for initializing EvalPlan.table when we're creating an EvalPlan
+// that's not a TableScan, since those EvalPlans don't need actual tables, but we still need
+// to initialize EvalPlan.table with something.
+class EmptyTable : public DbRelation {
 public:
-    static Dummy &one() {
-        static Dummy d;
+    static EmptyTable &one() {
+        static EmptyTable d;
         return d;
     }
 
-    Dummy() : DbRelation("dummy", ColumnNames(), ColumnAttributes()) {}
+    EmptyTable() : DbRelation("empty_table", ColumnNames(), ColumnAttributes()) {}
 
     virtual void create() {};
 
@@ -43,57 +45,69 @@ public:
     virtual ValueDict *project(Handle handle, const ColumnNames *column_names) { return nullptr; }
 };
 
+class ExtendedDbRelation : public DbRelation {
+public:
+    virtual void create() {};
+
+    virtual void create_if_not_exists() {};
+
+    virtual void drop() {};
+
+    virtual void open() {};
+
+    virtual void close() {};
+
+    virtual Handle insert(const ValueDict *row) { return Handle(); }
+
+    virtual void update(const Handle handle, const ValueDict *new_values) {}
+
+    virtual void del(const Handle handle) {}
+
+    virtual Handles *select() { return nullptr; };
+
+    virtual Handles *select(const ValueDict *where) { return nullptr; }
+
+    // select from a 
+    virtual Handles *select(Handles *current_selection) { return nullptr; }
+
+    virtual ValueDict *project(Handle handle) { return nullptr; } // this one already implemented
+
+    // this one already implemented
+    virtual ValueDict *project(Handle handle, const ColumnNames *column_names) { return nullptr; }
+};
+
 EvalPlan::EvalPlan(PlanType type, EvalPlan *relation) : type(type), relation(relation), projection(nullptr),
-                                                        select_conjunction(nullptr), table(Dummy::one()) {
+                                                        table(EmptyTable::one()) {
 }
 
 EvalPlan::EvalPlan(ColumnNames *projection, EvalPlan *relation) : type(Project), relation(relation),
-                                                                  projection(projection), select_conjunction(nullptr),
-                                                                  table(Dummy::one()) {
+                                                                  projection(projection), table(EmptyTable::one()) {
 }
 
-EvalPlan::EvalPlan(ValueDict *conjunction, EvalPlan *relation) : type(Select), relation(relation), projection(nullptr),
-                                                                 select_conjunction(conjunction), table(Dummy::one()) {
+// for Select
+EvalPlan::EvalPlan(EvalPlan *relation) : type(Select), relation(relation), projection(nullptr), table(EmptyTable::one()) {
 }
 
 EvalPlan::EvalPlan(DbRelation &table) : type(TableScan), relation(nullptr), projection(nullptr),
-                                        select_conjunction(nullptr), table(table) {
-}
-
-EvalPlan::EvalPlan(const EvalPlan *other) : type(other->type), table(other->table) {
-    if (other->relation != nullptr)
-        relation = new EvalPlan(other->relation);
-    else
-        relation = nullptr;
-    if (other->projection != nullptr)
-        projection = new ColumnNames(*other->projection);
-    else
-        projection = nullptr;
-    if (other->select_conjunction != nullptr)
-        select_conjunction = new ValueDict(*other->select_conjunction);
-    else
-        select_conjunction = nullptr;
+                                         table(table) {
 }
 
 EvalPlan::~EvalPlan() {
     delete relation;
     delete projection;
-    delete select_conjunction;
 }
-
 
 EvalPlan *EvalPlan::optimize() {
     return new EvalPlan(this);  // For now, we don't know how to do anything better
 }
 
-// changed since it wouldn't compile
 ValueDicts EvalPlan::evaluate() {
     ValueDicts ret;
     if (this->type != ProjectAll && this->type != Project)
         throw DbRelationError("Invalid evaluation plan--not ending with a projection");
 
     EvalPipeline pipeline = this->relation->pipeline();
-    Dummy *temp_table = (Dummy*)pipeline.first;
+    DbRelation *temp_table = pipeline.first;
     Handles *handles = pipeline.second;
     if (this->type == ProjectAll)
         ret = temp_table->project(handles);
@@ -108,14 +122,14 @@ EvalPipeline EvalPlan::pipeline() {
     if (this->type == TableScan)
         return EvalPipeline(&this->table, this->table.select());
     if (this->type == Select && this->relation->type == TableScan)
-        return EvalPipeline(&this->relation->table, this->relation->table.select(this->select_conjunction));
+        return EvalPipeline(&this->relation->table, this->relation->table.select());
 
     // recursive case
     if (this->type == Select) {
         EvalPipeline pipeline = this->relation->pipeline();
-        Dummy *temp_table = (Dummy*)pipeline.first;
+        DbRelation *temp_table = pipeline.first;
         Handles *handles = pipeline.second;
-        EvalPipeline ret(temp_table, (temp_table)->select(handles, this->select_conjunction));
+        EvalPipeline ret(temp_table, temp_table->select());
         delete handles;
         return ret;
     }
