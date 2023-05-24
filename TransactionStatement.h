@@ -19,6 +19,7 @@ namespace hsql {
 
     char* name;
     char* indexName;
+    ActionType type;
   };
 
 } // namespace hsql
