@@ -110,9 +110,9 @@ ValueDicts EvalPlan::evaluate() {
     DbRelation *temp_table = pipeline.first;
     Handles *handles = pipeline.second;
     if (this->type == ProjectAll)
-        ret = temp_table->project(handles);
+        ret = *temp_table->project(handles);
     else if (this->type == Project)
-        ret = temp_table->project(handles, this->projection);
+        ret = *temp_table->project(handles, this->projection);
     delete handles;
     return ret;
 }

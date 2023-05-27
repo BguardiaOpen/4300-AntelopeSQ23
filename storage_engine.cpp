@@ -33,7 +33,7 @@ bool Value::operator<(const Value &other) const {
 
 
 
-/*
+
 // Get only selected column attributes
 ColumnAttributes *DbRelation::get_column_attributes(const ColumnNames &select_column_names) const {
     ColumnAttributes *ret = new ColumnAttributes();
@@ -42,6 +42,7 @@ ColumnAttributes *DbRelation::get_column_attributes(const ColumnNames &select_co
         if (it == this->column_names.end()) {
             delete ret;
             throw DbRelationError("unknown column " + column_name);
+        }
         
         ptrdiff_t index = it - this->column_names.begin();
         ret->push_back(this->column_attributes[index]);
@@ -66,4 +67,3 @@ ValueDicts *DbRelation::project(Handles *handles, const ColumnNames *column_name
 }
 
 
-*/

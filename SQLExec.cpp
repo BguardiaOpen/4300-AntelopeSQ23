@@ -87,8 +87,6 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
                 return show((const ShowStatement *) statement);
             case kStmtInsert:
                 return insert((const InsertStatement *) statement);
-            case kStmtDelete:
-                return del((const DeleteStatement *) statement);
             case kStmtSelect:
                 return select((const SelectStatement *) statement);
             default:
@@ -561,7 +559,9 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     if(statement->fromTable->type != TableRefType::kTableName)
         return new QueryResult("Error: only selecting from a single table is supported");
 
-    DbRelation& table = tables->get_table(statement->fromTable->getName()); // get the DbRelation for the table
+    cout << "in select" << endl;
+    Identifier tableName = statement->fromTable->getName(); // name of table to select from
+    DbRelation& table = tables->get_table(tableName); // get the DbRelation for the table
     EvalPlan tableScan = EvalPlan(table); // start with table scan
     EvalPlan selection = EvalPlan(&tableScan);
 
@@ -569,6 +569,14 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     ColumnNames colsToSelect;
     ColumnAttributes colAttrs;
     bool selectAllColumns = false; // whether all columns are selected
+
+    cout << "length: " << statement->selectList->size() << endl;
+
+    for(Expr* expr : *statement->selectList){ 
+        cout << expr->expr << endl;
+        cout << "type: " << expr->type << endl; // type of expression
+
+    }
 
     // get list of columns to project or "*"    
     for(long unsigned int i = 0; i < statement->selectList->size(); i++){
@@ -582,23 +590,44 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
             selectAllColumns = true;
         else
             colsToSelect.push_back(expr->getName());
+
+        // delete expr;
     }
+
+    cout << "end of loop" << endl;
 
     // re-declaring variables since there's no empty ctor or assignment operator for EvalPlan
-    if(selectAllColumns){
+    if(!selectAllColumns){
+        cout << "not selecting all cols" << endl;
+
         EvalPlan projection = EvalPlan(EvalPlan::ProjectAll, &selection);
-        Identifier tableName = statement->fromTable->getName(); // name of table to select from
+        
+        cout << "optimizing" << endl;
         EvalPlan optimizedPlan = projection.optimize();
+        
+        cout << "evaluating" << endl;
         ValueDicts result = optimizedPlan.evaluate();
 
-        tables->get_columns(tableName, colsToSelect, colAttrs); // get all column names since we didn't get them in the loop
+        cout << "getting cols" << endl;
 
+        tables->get_columns(tableName, colsToSelect, colAttrs); // get all column names since we didn't get them in the loop
+        cout << "returning" << endl;
         return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);
     }
+
+    cout << "selecting all cols" << endl;
         
     EvalPlan projection = EvalPlan(&colsToSelect, &selection);
-    colAttrs = tables->get_column_attributes(colsToSelect);
+
+    cout << "Getting col attrs" << endl;
+    colAttrs = *tables->get_column_attributes(colsToSelect);
+
+    cout << "optimizing" << endl;
     EvalPlan optimizedPlan = projection.optimize();
+
+    cout << "evaluating" << endl;
     ValueDicts result = optimizedPlan.evaluate();
+
+    cout << "returning" << endl;
     return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);
 }

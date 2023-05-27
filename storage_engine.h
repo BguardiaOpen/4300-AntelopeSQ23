@@ -363,11 +363,11 @@ public:
         return column_names;
     }
 
-    ColumnAttributes get_column_attributes(const ColumnNames &select_column_names) const;
+    ColumnAttributes* get_column_attributes(const ColumnNames &select_column_names) const;
     ValueDict* project(Handle handle, const ValueDict *where);
-    ValueDicts project(Handles *handles);
-    ValueDicts project(Handles *handles, const ColumnNames *column_names);
-    ValueDicts* project(Handles *handles, const ValueDict * &where);
+    ValueDicts* project(Handles *handles);
+    ValueDicts* project(Handles *handles, const ColumnNames *column_names);
+    // ValueDicts* project(Handles *handles, const ValueDict * &where);
 
 protected:
     Identifier table_name;

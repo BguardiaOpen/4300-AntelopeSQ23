@@ -7,7 +7,7 @@
 INCLUDE_DIR = /usr/local/db6/include
 LIB_DIR     = /usr/local/db6/lib
 
-OBJS       =  storage_engine.o SlottedPage.o HeapFile.o HeapTable.o heap_storage.o ParseTreeToString.o SchemaTables.o SQLExec.o EvalPlan.o cpsc4300.o 
+OBJS       =  storage_engine.o SlottedPage.o HeapFile.o HeapTable.o heap_storage.o LockTable.o LockTableTests.o ParseTreeToString.o SchemaTables.o SQLExec.o EvalPlan.o cpsc4300.o 
 
 cpsc4300: $(OBJS)
 	g++ -L$(LIB_DIR) $(OBJS) -ldb_cxx -lsqlparser -o $@
@@ -31,7 +31,11 @@ SQLExec.o : SQLExec.h
 
 EvalPlan.o : EvalPlan.h
 
+LockTable.o : LockTable.h
+
 cpsc4300.o: cpsc4300.cpp
+
+LockTableTests.o : LockTableTests.cpp
 
 
 # General rule for compilation

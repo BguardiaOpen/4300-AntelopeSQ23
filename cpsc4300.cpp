@@ -9,6 +9,7 @@
 #include "db_cxx.h"
 #include "SQLParser.h"
 #include "ParseTreeToString.h"
+#include "LockTa"
 #include "SQLExec.h"
 using namespace std;
 using namespace hsql;
@@ -56,6 +57,8 @@ int main(int argc, char **argv) {
         getline(cin, sqlcmd);
         if(sqlcmd == "quit"){
             break;
+        }if(sqlcmd == "test"){
+            LockTableTests::runAll();
         }
         SQLParserResult* result = SQLParser::parseSQLString(sqlcmd);
         if(!result->isValid()){
