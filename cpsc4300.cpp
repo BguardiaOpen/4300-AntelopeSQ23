@@ -9,8 +9,8 @@
 #include "db_cxx.h"
 #include "SQLParser.h"
 #include "ParseTreeToString.h"
-#include "LockTa"
-#include "SQLExec.h"
+#include "LockTableTests.cpp"
+#include "SQLExec.h"  
 using namespace std;
 using namespace hsql;
 

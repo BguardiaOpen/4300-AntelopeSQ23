@@ -1,22 +1,18 @@
 #include "LockTable.h"
 namespace LockTableTests{
-    void testInsert(){
-        LockTable lt = LockTable();
-        LockTable::LockTableRecord record;
-        record.transactionID = 1;
-        record.lockType = LockTable::LockType::NO_LOCK;
-        record.tableLocked = "";
-        lt.addRecord(record);
-        Handles* handles = lt.select();
-        delete handles;
-    }
-
-    void testDelete(){
-
-    }
-
     void runAll(){
-        testInsert();
-        testDelete();
+        LockTable lt = LockTable();
+
+        for(int i=1; i < 3; i++){
+            lt.addRecord(LockTable::LockType::EXCLUSIVE, "new_table_name");
+            // Handles* handles = lt.select();
+            // delete handles;
+        }
+
+        for(int i=1; i < 3; i++){
+            lt.removeRecord(i);
+            Handles* handles = lt.select();
+            delete handles;
+        }
     }
 }
