@@ -602,11 +602,11 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
 
         EvalPlan projection = EvalPlan(EvalPlan::ProjectAll, &selection);
         
-        cout << "optimizing" << endl;
-        EvalPlan optimizedPlan = projection.optimize();
+        // cout << "optimizing" << endl;
+        // EvalPlan optimizedPlan = projection.optimize();
         
         cout << "evaluating" << endl;
-        ValueDicts result = optimizedPlan.evaluate();
+        ValueDicts result = projection.evaluate();
 
         cout << "getting cols" << endl;
 

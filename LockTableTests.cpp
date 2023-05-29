@@ -4,15 +4,15 @@ namespace LockTableTests{
         LockTable lt = LockTable();
 
         for(int i=1; i < 3; i++){
-            lt.addRecord(LockTable::LockType::EXCLUSIVE, "new_table_name");
-            // Handles* handles = lt.select();
-            // delete handles;
+            cout << "Adding record " << i << endl;
+            lt.insertIfNotExists(LockTable::LockType::EXCLUSIVE, "foo_bar");
+            lt.printRecords();
         }
 
         for(int i=1; i < 3; i++){
+            cout << "Deleting record " << i << endl;
             lt.removeRecord(i);
-            Handles* handles = lt.select();
-            delete handles;
+            lt.printRecords();
         }
     }
 }

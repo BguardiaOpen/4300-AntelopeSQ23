@@ -61,7 +61,7 @@ protected:
 
     virtual ValueDict *unmarshal(Dbt *data);
 
-    bool selected(Handle handle, ValueDict where);
+    bool selected(Handle handle, const ValueDict* where);
 
     ValueDict *project(Handle handle, ValueDict where);
 };

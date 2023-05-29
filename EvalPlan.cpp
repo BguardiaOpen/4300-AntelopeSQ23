@@ -5,6 +5,7 @@
  */
 
 #include "EvalPlan.h"
+using namespace std;
 
 // To use as a placeholder for initializing EvalPlan.table when we're creating an EvalPlan
 // that's not a TableScan, since those EvalPlans don't need actual tables, but we still need
@@ -76,10 +77,12 @@ public:
     virtual ValueDict *project(Handle handle, const ColumnNames *column_names) { return nullptr; }
 };
 
+// use for ProjectAll, e.g., EvalPlan(EvalPlan::ProjectAll, table);
 EvalPlan::EvalPlan(PlanType type, EvalPlan *relation) : type(type), relation(relation), projection(nullptr),
                                                         table(EmptyTable::one()) {
 }
 
+ // use for Project
 EvalPlan::EvalPlan(ColumnNames *projection, EvalPlan *relation) : type(Project), relation(relation),
                                                                   projection(projection), table(EmptyTable::one()) {
 }
@@ -88,6 +91,7 @@ EvalPlan::EvalPlan(ColumnNames *projection, EvalPlan *relation) : type(Project),
 EvalPlan::EvalPlan(EvalPlan *relation) : type(Select), relation(relation), projection(nullptr), table(EmptyTable::one()) {
 }
 
+// use for TableScan
 EvalPlan::EvalPlan(DbRelation &table) : type(TableScan), relation(nullptr), projection(nullptr),
                                          table(table) {
 }
@@ -102,35 +106,50 @@ EvalPlan *EvalPlan::optimize() {
 }
 
 ValueDicts EvalPlan::evaluate() {
+    cout << "In evaluate" << endl;
     ValueDicts ret;
-    if (this->type != ProjectAll && this->type != Project)
-        throw DbRelationError("Invalid evaluation plan--not ending with a projection");
 
+    // cout << "Entering if statement" << endl;
+    // if (type != ProjectAll && type != Project)
+    //     throw DbRelationError("Invalid evaluation plan--not ending with a projection");
+
+    cout << "calling pipeline" << endl;
     EvalPipeline pipeline = this->relation->pipeline();
     DbRelation *temp_table = pipeline.first;
     Handles *handles = pipeline.second;
+
+    cout << "Doing project" << endl;
     if (this->type == ProjectAll)
         ret = *temp_table->project(handles);
     else if (this->type == Project)
         ret = *temp_table->project(handles, this->projection);
     delete handles;
+    delete temp_table;
+    cout << "Returning from evaluate()" << endl;
     return ret;
 }
 
 EvalPipeline EvalPlan::pipeline() {
+    cout << endl << "in pipeline" << endl;
+
     // base cases
-    if (this->type == TableScan)
+    if (type == TableScan)
         return EvalPipeline(&this->table, this->table.select());
-    if (this->type == Select && this->relation->type == TableScan)
+    if (type == Select && this->relation->type == TableScan)
         return EvalPipeline(&this->relation->table, this->relation->table.select());
 
+    cout << "got past base cases" << endl;
+
     // recursive case
-    if (this->type == Select) {
+    if (type == PlanType::Select) {
+        cout << "in recursive case" << endl;
         EvalPipeline pipeline = this->relation->pipeline();
         DbRelation *temp_table = pipeline.first;
         Handles *handles = pipeline.second;
         EvalPipeline ret(temp_table, temp_table->select());
         delete handles;
+
+        cout << "returning from recursive case" << endl;
         return ret;
     }
 

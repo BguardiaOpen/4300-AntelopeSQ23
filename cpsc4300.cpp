@@ -3,9 +3,9 @@
 //CPSC 4300 - Milestone 1
 
 #include <iostream>
-#include <cstdio>
+#include <cstdio>               
 #include <cstdlib>
-#include <string>
+#include <string>       
 #include "db_cxx.h"
 #include "SQLParser.h"
 #include "ParseTreeToString.h"
@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
     _DB_ENV = &environment;
-    initialize_schema_tables();
+    initialize_schema_tables();     
 
 
     //main parse loop

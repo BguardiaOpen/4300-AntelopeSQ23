@@ -42,6 +42,7 @@ void HeapTable::drop() {
 //as above, so below
 void HeapTable::open() {
     file.open();
+    cout << "returning from HeapTable::open" << endl;
 }
 
 //closes the table
@@ -76,37 +77,48 @@ void HeapTable::del(const Handle handle) {
     close();
 }
 
+// Temporarily copied David and Haley's code from MS2
 //I have no idea what the empty select is supposed to do.
 Handles *HeapTable::select() {
+    // cout << endl << "in empty select" << endl;
+    // Handles* handles = new Handles();
+    // BlockIDs* block_ids = file.block_ids();
+    // for (auto const& block_id: *block_ids) {
+    //     SlottedPage* block = file.get(block_id);
+    //     RecordIDs* record_ids = block->ids();
+    //     for (auto const& record_id: *record_ids)
+    //         handles->push_back(Handle(block_id, record_id));
+    //     delete record_ids;
+    //     delete block;
+    // }
+    // delete block_ids;
+
+    // cout << "returning from empty select" << endl;
+    // return handles;
     return select(nullptr);
 }
 
-// SELECT operation analogue.  Load up your block IDs from the file, then your IDs from the block and where they match, push back a handle object and return it once they're all checked.
-Handles* HeapTable::select(const ValueDict* where) {
+// ATTRIBUTION: Copied this method from Professor Lundeen's solution repo
+Handles *HeapTable::select(const ValueDict *where) {
     open();
-    Handles* handles = new Handles();
-    BlockIDs* block_ids = file.block_ids();
-    for (auto const& block_id: *block_ids) {
-        SlottedPage* block = file.get(block_id);
-        RecordIDs* record_ids = block->ids();
+    Handles *handles = new Handles();
+    BlockIDs *block_ids = file.block_ids();
+    for (auto const &block_id: *block_ids) {
+        SlottedPage *block = file.get(block_id);
+        RecordIDs *record_ids = block->ids();
         for (auto const &record_id: *record_ids) {
             Handle handle(block_id, record_id);
-            ValueDict copy;
-            if(where != nullptr) {
-                // std::cout << "Debug for select / where" << std::endl;
-                copy.insert(where->begin(), where->end()); 
-                if (selected(handle, copy))
-                    handles->push_back(Handle(block_id, record_id));
-            } else
-            {
-                //std::cout << "Debug for select / no where block id {" << block_id << "} and recordid {" << record_id<< "}" << std::endl;
-                handles->push_back(Handle(block_id, record_id));
-            }
+            if (selected(handle, where))
+                handles->push_back(handle);
+            cout << "Debug for select / where block id {" << block_id << "} and recordid {" << record_id<< "}" << std::endl;
         }
+
         delete record_ids;
         delete block;
     }
     delete block_ids;
+
+    cout << "returning from select where" << endl;
     return handles;
 }
 
@@ -115,12 +127,23 @@ Handles *select(Handles *current_selection, const ValueDict *where){
     return new Handles();
 }
 
-bool HeapTable::selected(Handle handle, ValueDict where) {
-    ValueDict* row = this->project(handle, where);
-    bool is_selected = *row == where;
+
+// ATTRIBUTION: we copied this method from Professor Lundeen's solution repo
+/**
+ * See if the row at the given handle satisfies the given where clause
+ * @param handle  row to check
+ * @param where   conditions to check
+ * @return        true if conditions met, false otherwise
+ */
+bool HeapTable::selected(Handle handle, const ValueDict *where) {
+    if (where == nullptr)
+        return true;
+    ValueDict *row = this->project(handle, *where);
+    bool is_selected = *row == *where;
     delete row;
     return is_selected;
 }
+
 
 // Just pulls out the column names from a ValueDict and passes that to the usual form of project().
 ValueDict *HeapTable::project(Handle handle, ValueDict where) {
@@ -264,3 +287,42 @@ ValueDict *HeapTable::unmarshal(Dbt *data) {
     }
     return row;
 }
+
+// PREVIOUS CODE: Echidna
+
+// SELECT operation analogue.  Load up your block IDs from the file, then your IDs from the block and where they match, push back a handle object and return it once they're all checked.
+// Handles* HeapTable::select(const ValueDict* where) {
+//     open();
+//     cout << "opened" << endl;
+//     Handles* handles = new Handles();
+//     BlockIDs* block_ids = file.block_ids();
+//     cout << "got past blockIDS" << endl;
+//     for (auto const& block_id: *block_ids) {
+//         SlottedPage* block = file.get(block_id);
+//         RecordIDs* record_ids = block->ids();
+//         for (auto const &record_id: *record_ids) {
+//             Handle handle(block_id, record_id);
+//             ValueDict copy;
+//             if(where != nullptr) {
+//                 std::cout << "Debug for select / where" << std::endl;
+//                 copy.insert(where->begin(), where->end()); 
+//                 if (selected(handle, copy))
+//                     handles->push_back(Handle(block_id, record_id));
+//             } else{
+//                 std::cout << "Debug for select / no where block id {" << block_id << "} and recordid {" << record_id<< "}" << std::endl;
+//                 handles->push_back(Handle(block_id, record_id));
+//             }
+//         }
+//         delete record_ids;
+//         delete block;
+//     }
+//     delete block_ids;
+//     return handles;
+// }
+
+// bool HeapTable::selected(Handle handle, ValueDict where) {
+//     ValueDict* row = this->project(handle, where);
+//     bool is_selected = *row == where;
+//     delete row;
+//     return is_selected;
+// }
