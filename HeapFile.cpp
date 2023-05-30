@@ -33,9 +33,7 @@ void HeapFile::create(void){
 }
 
 void HeapFile::open(void){
-    cout << "In HeapFile::open" << endl;
     this->db_open(0);
-    cout << "Returning from HeapFile::open" << endl;
 }
 
 void HeapFile::close(void){

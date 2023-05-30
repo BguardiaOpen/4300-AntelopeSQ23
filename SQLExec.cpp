@@ -71,12 +71,14 @@ QueryResult::~QueryResult() {
  * @return QueryResult* the result of the statement
  */
 QueryResult *SQLExec::execute(const SQLStatement *statement) {
+    cout << endl << "in SQLExec::Execute()" << endl;
     // Initializes _tables table if not null
     if (SQLExec::tables == nullptr) {
         SQLExec::tables = new Tables();
         SQLExec::indices = new Indices();
     }
 
+    cout << endl << "Entering try block" << endl;
     try {
         switch (statement->type()) {
             case kStmtCreate:
@@ -88,6 +90,7 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
             case kStmtInsert:
                 return insert((const InsertStatement *) statement);
             case kStmtSelect:
+                cout << "In select case of switch stmt" << endl;
                 return select((const SelectStatement *) statement);
             default:
                 return new QueryResult("not implemented");
@@ -562,8 +565,8 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     cout << "in select" << endl;
     Identifier tableName = statement->fromTable->getName(); // name of table to select from
     DbRelation& table = tables->get_table(tableName); // get the DbRelation for the table
-    EvalPlan tableScan = EvalPlan(table); // start with table scan
-    EvalPlan selection = EvalPlan(&tableScan);
+    TableScanPlan tableScan = TableScanPlan(&table); // start with table scan
+    SelectPlan selectPlan = SelectPlan(&tableScan);    // wrap that in a SelectPlan
 
     // determine whether all columns are being selected or only some
     ColumnNames colsToSelect;
@@ -600,7 +603,7 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     if(!selectAllColumns){
         cout << "not selecting all cols" << endl;
 
-        EvalPlan projection = EvalPlan(EvalPlan::ProjectAll, &selection);
+        EvalPlan projection = EvalPlan(false, colsToSelect, &selectPlan);
         
         // cout << "optimizing" << endl;
         // EvalPlan optimizedPlan = projection.optimize();
@@ -611,22 +614,22 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
         cout << "getting cols" << endl;
 
         tables->get_columns(tableName, colsToSelect, colAttrs); // get all column names since we didn't get them in the loop
-        cout << "returning" << endl;
+        cout << "returning from SQLExec::Select()" << endl;
         return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);
     }
 
     cout << "selecting all cols" << endl;
         
-    EvalPlan projection = EvalPlan(&colsToSelect, &selection);
+    EvalPlan projection = EvalPlan(true, ColumnNames(), &selectPlan);
 
     cout << "Getting col attrs" << endl;
     colAttrs = *tables->get_column_attributes(colsToSelect);
 
     cout << "optimizing" << endl;
-    EvalPlan optimizedPlan = projection.optimize();
+    // EvalPlan optimizedPlan = projection.optimize();
 
     cout << "evaluating" << endl;
-    ValueDicts result = optimizedPlan.evaluate();
+    ValueDicts result = projection.evaluate();
 
     cout << "returning" << endl;
     return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);

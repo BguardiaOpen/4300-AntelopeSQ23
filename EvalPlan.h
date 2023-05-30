@@ -1,40 +1,44 @@
-/**
- * @file EvalPlan.h - Evaluation plans
- *
- * @author Kevin Lundeen
- * @see "Seattle University, CPSC5300, Winter 2023"
- */
-#pragma once
-
 #include "storage_engine.h"
+using namespace std;
 
+typedef std::pair<DbRelation*, Handles> EvalPipeline;
 
-typedef std::pair<DbRelation *, Handles *> EvalPipeline;
-
-class EvalPlan {
-public:
-    enum PlanType {
-        ProjectAll, Project, Select, TableScan
-    };
-
-    EvalPlan(PlanType type, EvalPlan *relation);  // use for ProjectAll, e.g., EvalPlan(EvalPlan::ProjectAll, table);
-    EvalPlan(ColumnNames *projection, EvalPlan *relation); // use for Project
-    EvalPlan(EvalPlan *relation);  // use for Select
-    EvalPlan(DbRelation &table);  // use for TableScan
-    virtual ~EvalPlan();
-
-    // Attempt to get the best equivalent evaluation plan
-    EvalPlan *optimize();
-
-    // Evaluate the plan: evaluate gets values, pipeline gets handles
-    ValueDicts evaluate();
-
-    EvalPipeline pipeline();
-
-protected:
-    PlanType type;
-    EvalPlan *relation;  // for everything except TableScan
-    ColumnNames *projection;  // for Project
-    DbRelation &table;  // for TableScan
+class TableScanPlan{
+    public:
+        TableScanPlan(DbRelation* tableToScan);
+        EvalPipeline pipeline();
+        DbRelation* getTable(); // return the table being scanned
+        ~TableScanPlan();
+    private:
+        DbRelation* table;  
 };
+
+class SelectPlan{
+    public:
+        SelectPlan(TableScanPlan* tableScanPlan);
+        ~SelectPlan();
+        EvalPipeline pipeline();
+        // void operator=(const SelectPlan& selectPlan);
+    private:
+        TableScanPlan* tableScan;
+};
+
+// Project or ProjectAll plan
+class EvalPlan{
+    private:
+        bool projectAll; // whether to project all columns; true if yes, false if no
+        ColumnNames columnsToProject;
+        SelectPlan* selectPlan;
+    public:
+        // When projecting only some columns, pass those to projectionColumns.
+        // If you're projecting all columns, set projectAllColumns to true, and projectionColumns
+        // will be ignored no matter what you set it to.
+        EvalPlan(bool projectAllColumns, ColumnNames projectionColumns, SelectPlan* select_plan);
+        ~EvalPlan();
+         // Attempt to get the best equivalent evaluation plan
+        // EvalPlan optimize();
+
+        // Evaluate the plan: evaluate gets values, pipeline gets handles
+        ValueDicts evaluate();
+};  
 
