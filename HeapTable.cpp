@@ -99,27 +99,31 @@ Handles *HeapTable::select() {
     return select(nullptr);
 }
 
-// ATTRIBUTION: Copied this method from Professor Lundeen's solution repo
 Handles *HeapTable::select(const ValueDict *where) {
     open();
-    Handles *handles = new Handles();
-    BlockIDs *block_ids = file.block_ids();
-    for (auto const &block_id: *block_ids) {
-        SlottedPage *block = file.get(block_id);
-        RecordIDs *record_ids = block->ids();
+    Handles* handles = new Handles();
+    BlockIDs* block_ids = file.block_ids();
+    for (auto const& block_id: *block_ids) {
+        SlottedPage* block = file.get(block_id);
+        RecordIDs* record_ids = block->ids();
         for (auto const &record_id: *record_ids) {
             Handle handle(block_id, record_id);
-            if (selected(handle, where))
-                handles->push_back(handle);
-            cout << "Debug for select / where block id {" << block_id << "} and recordid {" << record_id<< "}" << std::endl;
+            ValueDict copy;
+            if(where != nullptr) {
+                // std::cout << "Debug for select / where" << std::endl;
+                copy.insert(where->begin(), where->end()); 
+                if (selected(handle, &copy))
+                    handles->push_back(Handle(block_id, record_id));
+            } else
+            {
+                //std::cout << "Debug for select / no where block id {" << block_id << "} and recordid {" << record_id<< "}" << std::endl;
+                handles->push_back(Handle(block_id, record_id));
+            }
         }
-
         delete record_ids;
         delete block;
     }
     delete block_ids;
-
-    cout << "returning from select where" << endl;
     return handles;
 }
 

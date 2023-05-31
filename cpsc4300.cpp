@@ -24,6 +24,10 @@ string parseCreate(const CreateStatement *stmt);
 string parseSelect(const SelectStatement *stmt);
 string parseShow(const ShowStatement *stmt);
 
+// Converts a transaction command to a TransactionStatement
+TransactionStatement parseTransactionCommand(string command);
+
+
 //db environment variables
 u_int32_t env_flags = DB_CREATE | DB_INIT_MPOOL; //If the environment does not exist, create it.  Initialize memory.
 u_int32_t db_flags = DB_CREATE; //If the database does not exist, create it.
@@ -52,38 +56,68 @@ int main(int argc, char **argv) {
 
     //main parse loop
     while(true){
-        string sqlcmd;
+        string sqlCmd;
         cout << "SQL> ";
-        getline(cin, sqlcmd);
-        if(sqlcmd == "quit"){
-            break;
-        }if(sqlcmd == "test"){
-            LockTableTests::runAll();
+        getline(cin, sqlCmd);
+        string sqlcmd;
+
+        // convert string to uppercase
+        for(char ch : sqlCmd){
+            sqlcmd += toupper(ch);
         }
-        SQLParserResult* result = SQLParser::parseSQLString(sqlcmd);
-        if(!result->isValid()){
-            cout << "Invalid command: " << sqlcmd << endl;
-        } else {
-            for(uint i = 0; i < result->size(); ++i){
-                const SQLStatement* statement = result->getStatement(i);
-                try {
-                    cout << ParseTreeToString::statement(statement) << endl;
-                    QueryResult *q_result = SQLExec::execute(statement);
-                    cout << *q_result << endl;
-                    delete q_result;
-                }
-                catch (SQLExecError &e) {
-                    cerr << e.what() << endl;
+        if(sqlcmd == "QUIT"){
+            break;
+        }if(sqlcmd == "TEST"){
+            LockTableTests::runAll();
+        // Handle transaction commands separately
+        }if(sqlcmd.find("TRANSACTION") != string::npos){
+            TransactionStatement transactionStmt = parseTransactionCommand(sqlcmd);
+            try {
+                // cout << ParseTreeToString::statement(statement) << endl;
+                QueryResult *q_result = SQLExec::execute((SQLStatement*)&transactionStmt);
+                cout << *q_result << endl;
+                delete q_result;
+            }
+            catch (SQLExecError &e) {
+                        cerr << e.what() << endl;
+            }
+        }else{
+            SQLParserResult* result = SQLParser::parseSQLString(sqlcmd);
+            if(!result->isValid()){
+                cout << "Invalid command: " << sqlcmd << endl;
+            } else {
+                for(uint i = 0; i < result->size(); ++i){
+                    const SQLStatement* statement = result->getStatement(i);
+                    try {
+                        cout << ParseTreeToString::statement(statement) << endl;
+                        QueryResult *q_result = SQLExec::execute(statement);
+                        cout << *q_result << endl;
+                        delete q_result;
+                    }
+                    catch (SQLExecError &e) {
+                        cerr << e.what() << endl;
+                    }
                 }
             }
+            delete result;
         }
-        delete result;
     }
 
     //close db environment
     environment.close(0);
     return 0;
 } 
+
+TransactionStatement parseTransactionCommand(string command){
+    // remove whitespace in case there's more than one whitespace character
+    string::iterator it1 = remove(command.begin(), command.end(), ' ');
+    string::iterator it2 = remove(command.begin(), command.end(), '\n');
+    string::iterator it3 = remove(command.begin(), command.end(), '\t');
+
+
+    cout << "String w/o spaces: " << *it1 << endl;
+    return TransactionStatement(TransactionStatement::BEGIN);
+}
 
 string expressionToString(const Expr *expr) {
     string ret;

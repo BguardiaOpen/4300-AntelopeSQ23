@@ -7,8 +7,11 @@
 
 #include <exception>
 #include <string>
+#include <stack>
 #include "SQLParser.h"
 #include "SchemaTables.h"
+#include "TransactionStatement.h"
+using namespace hsql;
 
 const string SUCCESS_MESSAGE = "Successful query result"; // message to return in a QueryResult when it's successful
 
@@ -67,6 +70,9 @@ public:
     static QueryResult *execute(const hsql::SQLStatement *statement);
 
 protected:
+    // stack for transaction commands
+    static std::stack<TransactionStatement> transactionStack;
+
     // the one place in the system that holds the _tables and _indices tables
     static Tables *tables;
     static Indices *indices;
@@ -91,6 +97,16 @@ protected:
     static QueryResult *del(const hsql::DeleteStatement *statement);
 
     static QueryResult *select(const hsql::SelectStatement *statement);
+
+    static QueryResult *execute_transaction_command(const TransactionStatement *statement);
+
+    static QueryResult *begin_transaction(const TransactionStatement *statement);
+
+    static QueryResult *commit_transaction(const TransactionStatement *statement);
+
+    static QueryResult *rollback_transaction(const TransactionStatement *statement);
+
+    
 
     /**
      * Pull out column name and attributes from AST's column definition clause
