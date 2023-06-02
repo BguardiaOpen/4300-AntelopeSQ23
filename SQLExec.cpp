@@ -5,6 +5,7 @@
  */
 #include "SQLExec.h"
 #include "ParseTreeToString.h"
+#include "TransactionStatement.h"
 #include "SchemaTables.h"
 #include "EvalPlan.h"
 #include "storage_engine.h"
@@ -79,8 +80,8 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
     }
 
     // initialize stack
-    // transactionStack = std::stack<TransactionStatement>();
-
+    // transactionStack = TransactionStack();
+    
     cout << endl << "Entering try block" << endl;
     try {
         switch (statement->type()) {
@@ -638,45 +639,45 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);
 }
 
-QueryResult *SQLExec::execute_transaction_command(const TransactionStatement *statement){
-    switch(statement->type){
-        case TransactionStatement::BEGIN:
-            return begin_transaction(statement);
-        case TransactionStatement::COMMIT:
-            return commit_transaction(statement);
-        case TransactionStatement::ROLLBACK:
-            return rollback_transaction(statement);
-        default:
-            throw SQLExecError("invalid transaction type");
-    }
-}
+// QueryResult *SQLExec::execute_transaction_command(const TransactionStatement *statement){
+//     switch(statement->type){
+//         case TransactionStatement::BEGIN:
+//             return begin_transaction(statement);
+//         case TransactionStatement::COMMIT:
+//             return commit_transaction(statement);
+//         case TransactionStatement::ROLLBACK:
+//             return rollback_transaction(statement);
+//         default:
+//             throw SQLExecError("invalid transaction type");
+//     }
+// }
 
-QueryResult *SQLExec::begin_transaction(const TransactionStatement *statement){
-    transactionStack.push(*statement);
-    return new QueryResult("Opened transaction level " + transactionStack.size());
-}
+// QueryResult *SQLExec::begin_transaction(const TransactionStatement *statement){
+//     transactionStack.push(0);
+//     return new QueryResult("Opened transaction level " + transactionStack.size());
+// }
 
-QueryResult *SQLExec::commit_transaction(const TransactionStatement *statement){
-    if(transactionStack.empty())
-        throw SQLExecError("Attempted to commit a transaction when there are no transactions pending");
+// QueryResult *SQLExec::commit_transaction(const TransactionStatement *statement){
+//     if(transactionStack.empty())
+//         throw SQLExecError("Attempted to commit a transaction when there are no transactions pending");
     
-    int oldNumTransactions = transactionStack.size(); // number of transactions before popping stack
-    transactionStack.pop();
+//     int oldNumTransactions = transactionStack.size(); // number of transactions before popping stack
+//     transactionStack.pop();
 
 
-    return new QueryResult("Transaction level " + to_string(oldNumTransactions) + " committed, " + 
-                            (transactionStack.empty() ? "no" : to_string(transactionStack.size()))
-                            + " transactions pending");
-}
+//     return new QueryResult("Transaction level " + to_string(oldNumTransactions) + " committed, " + 
+//                             (transactionStack.empty() ? "no" : to_string(transactionStack.size()))
+//                             + " transactions pending");
+// }
 
-QueryResult *SQLExec::rollback_transaction(const TransactionStatement *statement){
-    if(transactionStack.empty())
-        throw SQLExecError("Attempted to roll back a transaction when there are no transactions pending");
+// QueryResult *SQLExec::rollback_transaction(const TransactionStatement *statement){
+//     if(transactionStack.empty())
+//         throw SQLExecError("Attempted to roll back a transaction when there are no transactions pending");
     
-    int oldNumTransactions = transactionStack.size(); // number of transactions before popping stack
-    transactionStack.pop();
+//     int oldNumTransactions = transactionStack.size(); // number of transactions before popping stack
+//     transactionStack.pop();
 
-    return new QueryResult("Transaction level " + to_string(oldNumTransactions) + " rolled back, " + 
-                            (transactionStack.empty() ? "no" : to_string(transactionStack.size()))
-                            + " transactions pending");
-}
+//     return new QueryResult("Transaction level " + to_string(oldNumTransactions) + " rolled back, " + 
+//                             (transactionStack.empty() ? "no" : to_string(transactionStack.size()))
+//                             + " transactions pending");
+// }

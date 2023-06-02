@@ -8,15 +8,18 @@
 namespace hsql {
   // Represents SQL Begin statements.
   // Example "BEGIN TRANSACTION;"
-  struct TransactionStatement : SQLStatement {
+  struct TransactionStatement  {
     enum ActionType {
       BEGIN,
       COMMIT,
       ROLLBACK
     };
     
-    TransactionStatement(ActionType transactionStatementType);
-    virtual ~TransactionStatement();
+    TransactionStatement(ActionType transactionStatementType){ type = transactionStatementType;}
+    virtual ~TransactionStatement(){
+        delete name;
+        delete indexName;
+    }
     
     
 

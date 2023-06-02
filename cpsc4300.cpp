@@ -10,6 +10,7 @@
 #include "SQLParser.h"
 #include "ParseTreeToString.h"
 #include "LockTableTests.cpp"
+#include "TransactionStatement.h"
 #include "SQLExec.h"  
 using namespace std;
 using namespace hsql;
@@ -110,12 +111,12 @@ int main(int argc, char **argv) {
 
 TransactionStatement parseTransactionCommand(string command){
     // remove whitespace in case there's more than one whitespace character
-    string::iterator it1 = remove(command.begin(), command.end(), ' ');
-    string::iterator it2 = remove(command.begin(), command.end(), '\n');
-    string::iterator it3 = remove(command.begin(), command.end(), '\t');
+    // string::iterator it1 = remove(command.begin(), command.end(), ' ');
+    // string::iterator it2 = remove(command.begin(), command.end(), '\n');
+    // ::iterator it3 = remove(command.begin(), command.end(), '\t');
 
 
-    cout << "String w/o spaces: " << *it1 << endl;
+    // cout << "String w/o spaces: " << *it1 << endl;
     return TransactionStatement(TransactionStatement::BEGIN);
 }
 
