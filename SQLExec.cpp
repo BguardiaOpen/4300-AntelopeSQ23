@@ -565,77 +565,50 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     if(statement->fromTable->type != TableRefType::kTableName)
         return new QueryResult("Error: only selecting from a single table is supported");
 
-    cout << "in select" << endl;
     Identifier tableName = statement->fromTable->getName(); // name of table to select from
     DbRelation& table = tables->get_table(tableName); // get the DbRelation for the table
     TableScanPlan tableScan = TableScanPlan(&table); // start with table scan
     SelectPlan selectPlan = SelectPlan(&tableScan);    // wrap that in a SelectPlan
 
+    // get all column names and attributes in the table
+    ColumnNames allColNames; // all column names in the table
+    ColumnAttributes allColAttrs; // all column attributes in the table
+    tables->get_columns(tableName, allColNames, allColAttrs);
+
     // determine whether all columns are being selected or only some
     ColumnNames colsToSelect;
-    ColumnAttributes colAttrs;
     bool selectAllColumns = false; // whether all columns are selected
 
-    cout << "length: " << statement->selectList->size() << endl;
-
-    for(Expr* expr : *statement->selectList){ 
-        cout << expr->expr << endl;
-        cout << "type: " << expr->type << endl; // type of expression
-
+    for(Expr* expr : *statement->selectList){
+        // Assume the only types are kExprStar and kExprColumnRef. If the statement is "SELECT *", 
+        // then the length of the select list would be 1. Otherwise, get the column names being selected
+        if(expr->type == kExprStar) selectAllColumns = true;
+        else colsToSelect.push_back(expr->getName());
     }
 
-    // get list of columns to project or "*"    
-    for(long unsigned int i = 0; i < statement->selectList->size(); i++){
-        Expr* expr = (*statement->selectList)[i];
-        hsql::ExprType exprType = expr->type; // type of expression
-
-        // assume the only types can be kExprStar and kExprColumnRef for now
-        // if the statement is "SELECT *", then the length of the select list would be 1.
-        // otherwise, get all column names.
-        if(exprType == kExprStar)
-            selectAllColumns = true;
-        else
-            colsToSelect.push_back(expr->getName());
-
-        // delete expr;
-    }
-
-    cout << "end of loop" << endl;
-
-    // re-declaring variables since there's no empty ctor or assignment operator for EvalPlan
-    if(!selectAllColumns){
-        cout << "not selecting all cols" << endl;
-
-        EvalPlan projection = EvalPlan(false, colsToSelect, &selectPlan);
-        
-        // cout << "optimizing" << endl;
-        // EvalPlan optimizedPlan = projection.optimize();
-        
-        cout << "evaluating" << endl;
-        ValueDicts result = projection.evaluate();
-
-        cout << "getting cols" << endl;
-
-        tables->get_columns(tableName, colsToSelect, colAttrs); // get all column names since we didn't get them in the loop
-        cout << "returning from SQLExec::Select()" << endl;
-        return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);
-    }
-
-    cout << "selecting all cols" << endl;
-        
-    EvalPlan projection = EvalPlan(true, ColumnNames(), &selectPlan);
-
-    cout << "Getting col attrs" << endl;
-    colAttrs = *tables->get_column_attributes(colsToSelect);
-
-    cout << "optimizing" << endl;
-    // EvalPlan optimizedPlan = projection.optimize();
-
-    cout << "evaluating" << endl;
+    // We can pass colsToSelect in both cases since the column names will be ignored if projecting all columns.
+    EvalPlan projection = EvalPlan(selectAllColumns ? true : false, colsToSelect, &selectPlan);
     ValueDicts result = projection.evaluate();
+    ColumnAttributes selectedColAttrs; // if it's not a select * statement, these are the attributes of only the columns being selected   
 
-    cout << "returning" << endl;
-    return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);
+    if(!selectAllColumns){        
+        // Need to get the column attributes only corresponding to the columns we're selecting
+        for(Identifier selectedColName : colsToSelect){
+            // get an iterator to the location of selectedColName in allColNames
+            ColumnNames::iterator it = find(allColNames.begin(), allColNames.end(), selectedColName);
+
+            // get the index of selectedColName in allColNames, which is also the index of that column's
+            // attribute in allColAttrs
+            int index = distance(allColNames.begin(), it);
+
+            // get the column attribute corresponding to selectedColName; add it to the list of attributes
+            selectedColAttrs.push_back(allColAttrs[index]);
+        }   
+    }
+
+    cout << "returning from SQLExec::Select()" << endl;
+    return new QueryResult(selectAllColumns ? &allColNames : &colsToSelect, 
+                           selectAllColumns ? &allColAttrs : &selectedColAttrs, &result, SUCCESS_MESSAGE);
 }
 
 // QueryResult *SQLExec::execute_transaction_command(const TransactionStatement *statement){

@@ -22,7 +22,7 @@ SelectPlan::SelectPlan(TableScanPlan* tableScanPlan){
 }
 
 SelectPlan::~SelectPlan(){
-    delete tableScan;
+    // delete tableScan;
 }
 
 EvalPipeline SelectPlan::pipeline(){
@@ -56,5 +56,5 @@ ValueDicts EvalPlan::evaluate(){
 }
 
 EvalPlan::~EvalPlan(){
-    delete selectPlan;
+    // delete selectPlan;
 }
