@@ -10,7 +10,6 @@
 #include "SQLParser.h"
 #include "ParseTreeToString.h"
 #include "LockTableTests.cpp"
-#include "TransactionStatement.h"
 #include "SQLExec.h"  
 using namespace std;
 using namespace hsql;

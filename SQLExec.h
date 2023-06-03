@@ -10,29 +10,12 @@
 #include <stack>
 #include "SQLParser.h"
 #include "SchemaTables.h"
-#include "TransactionStatement.h"
-#include "TransactionStack.h"
+#include "TransactionStatement.cpp"
+#include "TransactionStack.cpp"
 using namespace hsql;
 
 #include <stack>
 
-
-// Note: Implementations of constructors and destructors can be found in statements.cpp.
-// namespace hsql {
-//   // Represents SQL Begin statements.
-//   // Example "BEGIN TRANSACTION;"
-//   struct TransactionStatement : SQLStatement {
-//     enum ActionType {
-//       BEGIN,
-//       COMMIT,
-//       ROLLBACK
-//     };
-    
-//     TransactionStatement(ActionType transactionStatementType);
-//     ActionType type;
-//   };
-
-// } // namespace hsql
 
 const string SUCCESS_MESSAGE = "Successful query result"; // message to return in a QueryResult when it's successful
 

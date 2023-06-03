@@ -5,7 +5,6 @@
  */
 #include "SQLExec.h"
 #include "ParseTreeToString.h"
-#include "TransactionStatement.h"
 #include "SchemaTables.h"
 #include "EvalPlan.h"
 #include "storage_engine.h"
