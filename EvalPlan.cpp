@@ -7,7 +7,7 @@ TableScanPlan::TableScanPlan(DbRelation* tableToScan){
 TableScanPlan::~TableScanPlan(){
     cout << "In TableScanPlan dtor" << endl;
 
-    delete table;
+    // delete table;
 }
 
 DbRelation* TableScanPlan::getTable(){

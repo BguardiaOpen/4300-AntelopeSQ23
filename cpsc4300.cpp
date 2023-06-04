@@ -11,6 +11,8 @@
 #include "ParseTreeToString.h"
 #include "LockTableTests.cpp"
 #include "SQLExec.h"  
+#include "TransactionStatement.h"
+#include "TransactionTests.cpp"
 using namespace std;
 using namespace hsql;
 
@@ -25,7 +27,7 @@ string parseSelect(const SelectStatement *stmt);
 string parseShow(const ShowStatement *stmt);
 
 // Converts a transaction command to a TransactionStatement
-TransactionStatement parseTransactionCommand(string command);
+// TransactionStatement parseTransactionCommand(string command);
 
 
 //db environment variables
@@ -68,20 +70,22 @@ int main(int argc, char **argv) {
         if(sqlcmd == "QUIT"){
             break;
         }if(sqlcmd == "TEST"){
-            LockTableTests::runAll();
+            TransactionTests::test();
         // Handle transaction commands separately
-        }if(sqlcmd.find("TRANSACTION") != string::npos){
-            TransactionStatement transactionStmt = parseTransactionCommand(sqlcmd);
-            try {
-                // cout << ParseTreeToString::statement(statement) << endl;
-                QueryResult *q_result = SQLExec::execute((SQLStatement*)&transactionStmt);
-                cout << *q_result << endl;
-                delete q_result;
-            }
-            catch (SQLExecError &e) {
-                        cerr << e.what() << endl;
-            }
-        }else{
+        }
+        // if(sqlcmd.find("TRANSACTION") != string::npos){
+        //     TransactionStatement transactionStmt = parseTransactionCommand(sqlcmd);
+        //     try {
+        //         // cout << ParseTreeToString::statement(statement) << endl;
+        //         QueryResult *q_result = SQLExec::execute((SQLStatement*)&transactionStmt);
+        //         cout << *q_result << endl;
+        //         delete q_result;
+        //     }
+        //     catch (SQLExecError &e) {
+        //                 cerr << e.what() << endl;
+        //     }
+        // }
+        else{
             SQLParserResult* result = SQLParser::parseSQLString(sqlcmd);
             if(!result->isValid()){
                 cout << "Invalid command: " << sqlcmd << endl;
@@ -108,16 +112,16 @@ int main(int argc, char **argv) {
     return 0;
 } 
 
-TransactionStatement parseTransactionCommand(string command){
-    // remove whitespace in case there's more than one whitespace character
-    // string::iterator it1 = remove(command.begin(), command.end(), ' ');
-    // string::iterator it2 = remove(command.begin(), command.end(), '\n');
-    // ::iterator it3 = remove(command.begin(), command.end(), '\t');
+// TransactionStatement parseTransactionCommand(string command){
+//     // remove whitespace in case there's more than one whitespace character
+//     // string::iterator it1 = remove(command.begin(), command.end(), ' ');
+//     // string::iterator it2 = remove(command.begin(), command.end(), '\n');
+//     // ::iterator it3 = remove(command.begin(), command.end(), '\t');
 
 
-    // cout << "String w/o spaces: " << *it1 << endl;
-    return TransactionStatement(TransactionStatement::BEGIN);
-}
+//     // cout << "String w/o spaces: " << *it1 << endl;
+//     return TransactionStatement(TransactionStatement::BEGIN);
+// }
 
 string expressionToString(const Expr *expr) {
     string ret;

@@ -10,7 +10,7 @@
 #include <stack>
 #include "SQLParser.h"
 #include "SchemaTables.h"
-#include "TransactionStatement.cpp"
+#include "TransactionStatement.h"
 #include "TransactionStack.cpp"
 using namespace hsql;
 

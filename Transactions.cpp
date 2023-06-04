@@ -4,31 +4,72 @@ using namespace hsql;
 
 void TransactionManager::begin_transaction(){
     highestTransactionID++;
-    activeTransactions.push_back(highestTransactionID);
+    activeTransactions.push_back(highestTransactionID); // add new ID to active transactions
+    TransactionLogRecord record = {highestTransactionID, TransactionStatement(TransactionStatement::BEGIN)};
+    transactionLog.push_back(record); // add begin to log
 
-    // add begin to log
+    // add a new transaction to the stack
+    transactionStack.push(highestTransactionID);
+    cout << "Opened transaction level " << transactionStack.size() << endl;
+    cout << "ID of the transaction that just begun: " << highestTransactionID << endl;
 }
 
-void TransactionManager::commit_transaction(int transactionID){
-    // check if transactionID exists, then remove it
-    vector<int>::iterator it = find(activeTransactions.begin(), activeTransactions.end(), transactionID);
+// commits the current transaction (the one at the top of the stack)
+void TransactionManager::commit_transaction(){
+    if(transactionStack.empty())
+        throw TransactionManagerError("Attempted to commit a transaction when there are no transactions pending");
 
-    if(it != activeTransactions.end()){
-        activeTransactions.erase(it);
-    }
+    int id = transactionStack.top(); // id of the transaction to commit
+
+    vector<int>::iterator it = find(activeTransactions.begin(), activeTransactions.end(), id);
+    if(it == activeTransactions.end())
+        throw TransactionManagerError("Transaction not found in transaction log");
+
+    activeTransactions.erase(it);
 
     // add commit to log
+    TransactionLogRecord record = {id, TransactionStatement(TransactionStatement::COMMIT)};
+    transactionLog.push_back(record); 
+
+    // update stack
+    int oldNumTransactions = transactionStack.size(); // number of transactions before popping stack
+    transactionStack.pop();
+
+    cout << "Transaction level " << oldNumTransactions << " committed, " <<
+                            (transactionStack.empty() ? "no" : to_string(transactionStack.size()))
+                            << " transactions pending" << endl;
+    cout << "ID of the transaction that was just committed: " << id << endl;
 }
 
-void TransactionManager::rollback_transaction(int transactionID){
-    vector<int>::iterator it = find(activeTransactions.begin(), activeTransactions.end(), transactionID);
+// rolls back the current transaction (the one at the top of the stack)
+void TransactionManager::rollback_transaction(){
+    if(transactionStack.empty())
+        throw TransactionManagerError("Attempted to roll back a transaction when there are no transactions pending");
+    
+    int id = transactionStack.top(); // id of the transaction to roll back
+
+    vector<int>::iterator it = find(activeTransactions.begin(), activeTransactions.end(), id);
     if(it == activeTransactions.end()){
-        return;
+        throw TransactionManagerError("Transaction not found in transaction log");
     }
     
     // reverse data changes
     // erase transaction log
-    // remove from activeTransactions
+    activeTransactions.erase(it); // remove from activeTransactions
+
+    // add rollback to log
+    TransactionLogRecord record = {id, TransactionStatement(TransactionStatement::ROLLBACK)};
+    transactionLog.push_back(record); 
+
+    // update stack
+    int oldNumTransactions = transactionStack.size(); // number of transactions before popping stack
+    transactionStack.pop();
+    
+
+    cout << "Transaction level " << oldNumTransactions << " rolled back, " <<
+                            (transactionStack.empty() ? "no" : to_string(transactionStack.size()))
+                            << " transactions pending" << endl;
+    cout << "ID of the transaction that was just rolled back: " << id << endl;
 }
 
 // returns the file descriptor for a database table file
