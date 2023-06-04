@@ -604,11 +604,23 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
             // get the column attribute corresponding to selectedColName; add it to the list of attributes
             selectedColAttrs.push_back(allColAttrs[index]);
         }   
+
+        cout << "returning from SQLExec::Select()" << endl;
+        return new QueryResult(&colsToSelect, &selectedColAttrs, &result, SUCCESS_MESSAGE);
     }
 
+    cout << "Selecting all columns? " << (selectAllColumns ? "Yes" : "No") << endl;
+    cout << "allColNames: ";
+    for(Identifier cn : allColNames) cout << cn << " ";
+    cout << endl << "allColAttrs: ";
+    for(ColumnAttribute ca : allColAttrs) cout << ca.get_data_type() << " ";
+    cout << endl << "selectedColNames: ";
+    for(Identifier cn : colsToSelect) cout << cn << " ";
+    cout << endl << "selectedColAttrs: ";
+    for(ColumnAttribute ca : selectedColAttrs) cout << ca.get_data_type() << " ";
+
     cout << "returning from SQLExec::Select()" << endl;
-    return new QueryResult(selectAllColumns ? &allColNames : &colsToSelect, 
-                           selectAllColumns ? &allColAttrs : &selectedColAttrs, &result, SUCCESS_MESSAGE);
+    return new QueryResult(&allColNames, &allColAttrs, &result, SUCCESS_MESSAGE);
 }
 
 // QueryResult *SQLExec::execute_transaction_command(const TransactionStatement *statement){

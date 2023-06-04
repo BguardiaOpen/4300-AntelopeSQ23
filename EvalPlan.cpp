@@ -5,6 +5,8 @@ TableScanPlan::TableScanPlan(DbRelation* tableToScan){
 }
 
 TableScanPlan::~TableScanPlan(){
+    cout << "In TableScanPlan dtor" << endl;
+
     delete table;
 }
 
@@ -21,9 +23,11 @@ SelectPlan::SelectPlan(TableScanPlan* tableScanPlan){
     tableScan = tableScanPlan;
 }
 
-SelectPlan::~SelectPlan(){
-    // delete tableScan;
-}
+// SelectPlan::~SelectPlan(){
+//     cout << "In SelectPlan dtor" << endl;
+
+//     // delete tableScan;
+// }
 
 EvalPipeline SelectPlan::pipeline(){
     DbRelation* table = tableScan->getTable(); // the table in the TableScanPlan
@@ -55,6 +59,7 @@ ValueDicts EvalPlan::evaluate(){
     return ret;
 }
 
-EvalPlan::~EvalPlan(){
-    // delete selectPlan;
-}
+// EvalPlan::~EvalPlan(){
+//     cout << "In EvalPlan dtor" << endl;
+//     // delete selectPlan;
+// }

@@ -75,7 +75,7 @@ public:
 
 protected:
     // stack for transaction commands
-    // static TransactionStack transactionStack;
+    static TransactionStack transactionStack;
 
     // the one place in the system that holds the _tables and _indices tables
     static Tables *tables;
@@ -102,16 +102,14 @@ protected:
 
     static QueryResult *select(const hsql::SelectStatement *statement);
 
-    // ` QueryResult *rollback_transaction(const TransactionStatement *statement);
+    // static QueryResult *execute_transaction_command(const TransactionStatement *statement);
 
-    
+    // static QueryResult *begin_transaction(const TransactionStatement *statement);
 
-    /**
-     * Pull out column name and attributes from AST's column definition clause
-     * @param col                AST column definition
-     * @param column_name        returned by reference
-     * @param column_attributes  returned by reference
-     */
+    // static QueryResult *commit_transaction(const TransactionStatement *statement);
+
+    // static QueryResult *rollback_transaction(const TransactionStatement *statement);
+
     static void
     column_definition(const hsql::ColumnDefinition *col, Identifier &column_name, ColumnAttribute &column_attribute);
 };
