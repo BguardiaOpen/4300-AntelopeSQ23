@@ -128,3 +128,22 @@ void TransactionManager::releaseLock(int transactionID, int fileDescriptor){
         throw TransactionManagerError("Error with closing the FD: " + errno);
     else cout << "Successfully closed the file" << endl;
 }
+
+void TransactionManager::checkpoint(int transactionID)
+{
+    vector<int> transArr;
+    transArr.push_back(transactionID);
+}
+
+int TransactionManager::retrieveTransaction(int transactionID)
+{
+    int id = 0;
+    for(int i = 0; i < transArr.size(); i++)
+    {
+        if(transArr[i] == transactionID)
+        {
+            id = transactionID;
+        }
+    }
+    return id;
+}
