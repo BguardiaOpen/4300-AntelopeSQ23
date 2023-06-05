@@ -8,6 +8,7 @@
 #include "SchemaTables.h"
 #include "EvalPlan.h"
 #include "storage_engine.h"
+#include "Transactions.h"
 #include <iostream>
 
 using namespace std;
@@ -16,6 +17,7 @@ using namespace hsql;
 // define static data
 Tables *SQLExec::tables = nullptr;
 Indices *SQLExec::indices = nullptr;
+TransactionManager SQLExec::tm = TransactionManager();
 
 // make query result be printable
 ostream &operator<<(ostream &out, const QueryResult &qres) {
@@ -78,8 +80,9 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
         SQLExec::indices = new Indices();
     }
 
-    // initialize stack
-    // transactionStack = TransactionStack();
+    // initialize transaction manager
+    // if(SQLExec::tm == nullptr)
+    //     SQLExec::tm = TransactionManager();
     
     cout << endl << "Entering try block" << endl;
     try {
@@ -100,6 +103,22 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
         }
     } catch (DbRelationError &e) {
         throw SQLExecError(string("DbRelationError: ") + e.what());
+    }
+}
+
+QueryResult *SQLExec::execute_transaction_command(const TransactionStatement *statement){
+    switch(statement->type){
+        case TransactionStatement::BEGIN:
+            tm.begin_transaction();
+            return new QueryResult("Successfully executed begin transaction");
+        case TransactionStatement::COMMIT:
+            tm.commit_transaction();
+            return new QueryResult("Successfully executed commit transaction");
+        case TransactionStatement::ROLLBACK:
+            tm.rollback_transaction();
+            return new QueryResult("Successfully executed rollback transaction");
+        default:
+            throw SQLExecError("invalid transaction type");
     }
 }
 
@@ -623,18 +642,7 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     return new QueryResult(&allColNames, &allColAttrs, &result, SUCCESS_MESSAGE);
 }
 
-// QueryResult *SQLExec::execute_transaction_command(const TransactionStatement *statement){
-//     switch(statement->type){
-//         case TransactionStatement::BEGIN:
-//             return begin_transaction(statement);
-//         case TransactionStatement::COMMIT:
-//             return commit_transaction(statement);
-//         case TransactionStatement::ROLLBACK:
-//             return rollback_transaction(statement);
-//         default:
-//             throw SQLExecError("invalid transaction type");
-//     }
-// }
+
 
 // QueryResult *SQLExec::begin_transaction(const TransactionStatement *statement){
 //     transactionStack.push(0);

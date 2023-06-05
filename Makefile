@@ -7,7 +7,7 @@
 INCLUDE_DIR = /usr/local/db6/include
 LIB_DIR = /usr/local/db6/lib
 
-OBJS =  storage_engine.o SlottedPage.o HeapFile.o HeapTable.o heap_storage.o LockTable.o ParseTreeToString.o SchemaTables.o SQLExec.o EvalPlan.o cpsc4300.o Transactions.o TransactionStatement.o TransactionStack.o TransactionTests.o
+OBJS =  storage_engine.o SlottedPage.o HeapFile.o HeapTable.o heap_storage.o LockTable.o ParseTreeToString.o SchemaTables.o SQLExec.o EvalPlan.o cpsc4300.o Transactions.o TransactionStatement.o TransactionTests.o
 
 #all: $(OBJS)
 
@@ -38,11 +38,9 @@ cpsc4300.o: cpsc4300.cpp
 
 Transactions.o : Transactions.cpp
 
-TransactionStatement.o : TransactionStatement.h TransactionStatement.cpp
+TransactionStatement.o : TransactionStatement.h 
 
-TransactionStack.o : TransactionStack.cpp
-
-TransactionTests.o : TransactionTests.cpp
+TransactionTests.o : TransactionTests.h
 
 
 # General rule for compilation

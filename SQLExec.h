@@ -4,6 +4,8 @@
  * @see "Seattle University, CPSC5300, Winter 2023"
  */
 #pragma once
+class TransactionManager; // forward declaring to avoid compilation error
+
 
 #include <exception>
 #include <string>
@@ -11,11 +13,9 @@
 #include "SQLParser.h"
 #include "SchemaTables.h"
 #include "TransactionStatement.h"
-#include "TransactionStack.cpp"
+#include "Transactions.h"
 using namespace hsql;
-
-#include <stack>
-
+using namespace std;
 
 const string SUCCESS_MESSAGE = "Successful query result"; // message to return in a QueryResult when it's successful
 
@@ -68,18 +68,24 @@ class SQLExec {
 public:
     /**
      * Execute the given SQL statement.
+     * Precondition: Do NOT call this with a transaction statement
      * @param statement   the Hyrise AST of the SQL statement to execute
      * @returns           the query result (freed by caller)
      */
     static QueryResult *execute(const hsql::SQLStatement *statement);
 
-protected:
-    // stack for transaction commands
-    static TransactionStack transactionStack;
+    /**
+     * Execute the given transaction statement.
+     * @param statement   the transaction statement to execute
+     * @returns           the query result (freed by caller)
+     */
+    static QueryResult *execute_transaction_command(const TransactionStatement *statement);
 
+protected:
     // the one place in the system that holds the _tables and _indices tables
     static Tables *tables;
     static Indices *indices;
+    static TransactionManager tm; 
 
     // recursive decent into the AST
     static QueryResult *create(const hsql::CreateStatement *statement);
@@ -102,13 +108,7 @@ protected:
 
     static QueryResult *select(const hsql::SelectStatement *statement);
 
-    // static QueryResult *execute_transaction_command(const TransactionStatement *statement);
-
-    // static QueryResult *begin_transaction(const TransactionStatement *statement);
-
-    // static QueryResult *commit_transaction(const TransactionStatement *statement);
-
-    // static QueryResult *rollback_transaction(const TransactionStatement *statement);
+    
 
     static void
     column_definition(const hsql::ColumnDefinition *col, Identifier &column_name, ColumnAttribute &column_attribute);

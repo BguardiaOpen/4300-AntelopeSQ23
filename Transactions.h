@@ -1,3 +1,6 @@
+#ifndef TRANSACTIONS_H
+#define TRANSACTIONS_H
+
 #include <vector>
 #include "../sql-parser/src/SQLParser.h"
 #include "TransactionStatement.h"
@@ -8,40 +11,38 @@
 #include <sys/file.h>
 #include <fcntl.h>
 
-// This is from the instructor code in SQLExec.h
-class TransactionManagerError : public std::runtime_error {
-public:
-    explicit TransactionManagerError(std::string s) : runtime_error(s) {}
-};
+using namespace std;
+    class TransactionManager{
 
-class TransactionManager{
+        // A record in the transaction log
+        struct TransactionLogRecord{
+            int transactionID;      // id of the transaction that executed the statement
+            hsql::SQLStatement statement; // the statement that was executed
+        };
 
-    // A record in the transaction log
-    struct TransactionLogRecord{
-        int transactionID;      // id of the transaction that executed the statement
-        SQLStatement statement; // the statement that was executed
+        private:
+            std::vector<TransactionLogRecord> transactionLog; // the vector at index i is the transaction log for the transaction with id i
+            std::vector<int> activeTransactions; // process IDs, starting from 0, of the transactions that are currently running
+            int highestTransactionID ; // largest transaction ID that has been created out of all the transactions
+            stack<int> transactionStack;
 
-        // TransactionLogRecord(int tid, SQLStatement stmt){
-        //     transactionID = tid;
-        //     statement = stmt;
-        // }
+        public: 
+            TransactionManager(){ highestTransactionID = -1; }
+            void begin_transaction();
+            void commit_transaction();
+            void rollback_transaction();
+            int getFD(Identifier tableName);
+            void tryToGetLock(int transactionID, hsql::SQLStatement statement, int fd);
+            void releaseLock(int transactionID, int fileDescriptor);
+
+            // returns a list of the transactions that are currently active in the databaset system
+            vector<int> getActiveTransactions(){ return activeTransactions; } 
     };
 
-    private:
-        std::vector<TransactionLogRecord> transactionLog; // the vector at index i is the transaction log for the transaction with id i
-        std::vector<int> activeTransactions; // process IDs, starting from 0, of the transactions that are currently running
-        int highestTransactionID ; // largest transaction ID that has been created out of all the transactions
-        stack<int> transactionStack;
+    // This is from the instructor code in SQLExec.h
+    class TransactionManagerError : public std::runtime_error {
+    public:
+        explicit TransactionManagerError(std::string s) : runtime_error(s) {}
+    };
 
-    public: 
-        TransactionManager(){ highestTransactionID = -1; }
-        void begin_transaction();
-        void commit_transaction();
-        void rollback_transaction();
-        int getFD(Identifier tableName);
-        void tryToGetLock(int transactionID, hsql::SQLStatement statement, int fd);
-        void releaseLock(int transactionID, int fileDescriptor);
-
-        // returns a list of the transactions that are currently active in the databaset system
-        vector<int> getActiveTransactions(){return activeTransactions;} 
-};
+#endif
