@@ -22,6 +22,7 @@ using namespace std;
             hsql::SQLStatement* statement; // the SQL statement that was executed, if any
             hsql::TransactionStatement* transactionStatement; // the transaction statement that was executed, if any
             vector<DbRelation*>* checkpointTables; // list of DbRelations at a checkpoint, if any
+            vector<Identifier>* tblNames; // list of the names of all the tables at a checkpoint
         };
 
         private:
@@ -29,8 +30,8 @@ using namespace std;
             std::vector<int> activeTransactions; // process IDs, starting from 0, of the transactions that are currently running
             int highestTransactionID ; // largest transaction ID that has been created out of all the transactions
             stack<int> transactionStack;
-            vector<DbRelation*> tablesAtCheckpoint; // list of DbRelations representing all the database tables, for checkpoints
-
+            vector<DbRelation*> currentTables; // list of DbRelations representing all the tables currently in the database
+            vector<Identifier>* tableNames;
         public: 
             TransactionManager(){ highestTransactionID = -1; }
             void begin_transaction();
@@ -43,9 +44,12 @@ using namespace std;
 
             // returns a list of the transactions that are currently active in the database system
             vector<int> getActiveTransactions(){ return activeTransactions; } 
-            int retrieveTransaction(int transactionID);
-            void checkpoint(int transactionID, DbRelation& table);
-            // void TransactionManager(::printLog(){)
+            void printLog();
+
+            // For every SQLExec method that's called within a transaction, that method MUST call this to 
+            // update the list of tables and table names stored in TransactionManager, but only AFTER all locks are released.
+            // (This is done in SQLExec::releaseLock())
+            void updateTablesAndNames(); 
 
     };
 

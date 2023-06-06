@@ -80,7 +80,10 @@ public:
      * @returns           the query result (freed by caller)
      */
     static QueryResult *execute_transaction_command(const TransactionStatement *statement);
-    static vector<DbRelation*> saveTables(); // for a transaction checkpoint, save the current contents of all the tables when the DB is in a consistent state, so we can rollback
+
+    // To help the TransactionManager: return a pair of DbRelations of all tables in the DBMS,
+    // and their names.
+    static pair<vector<DbRelation*>, vector<Identifier>*> saveTablesAndNames(); 
 
 protected:
     // the one place in the system that holds the _tables and _indices tables

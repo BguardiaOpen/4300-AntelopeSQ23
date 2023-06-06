@@ -285,6 +285,7 @@ pair<int, int> SQLExec::requestLock(SQLStatement* stmt, Identifier tableToAccess
 void SQLExec::releaseLock(pair<int, int> fdAndID){
     if(fdAndID != pair<int, int>(-1, -1))
         tm.releaseLock(fdAndID.first, fdAndID.second);
+    tm.updateTablesAndNames();
 }
 
 /**
@@ -671,30 +672,25 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
         }   
 
         releaseLock(fdAndID);
-        cout << "returning from SQLExec::Select()" << endl;
         return new QueryResult(&colsToSelect, &selectedColAttrs, &result, SUCCESS_MESSAGE);
     }
 
-    // for(Identifier cn : allColNames) cout << cn << " ";
-    // for(ColumnAttribute ca : allColAttrs) cout << ca.get_data_type() << " ";
-    // for(Identifier cn : colsToSelect) cout << cn << " ";
-    // for(ColumnAttribute ca : selectedColAttrs) cout << ca.get_data_type() << " ";
-
     releaseLock(fdAndID);
-    cout << "returning from SQLExec::Select()" << endl;
     return new QueryResult(&allColNames, &allColAttrs, &result, SUCCESS_MESSAGE);
 }
 
-vector<DbRelation*> SQLExec::saveTables(){
-    vector<DbRelation*> tableList;
+pair<vector<DbRelation*>, vector<Identifier>*> SQLExec::saveTablesAndNames(){
+    vector<DbRelation*> tableList; // list of all DbRelations for tables
+    vector<Identifier>* tableNameList = new vector<Identifier>(); // list of all names of tables
     Handles* handles = tables->select(); // get handles to all table names
 
     // get DbRelations for all the tables
     for(Handle h : *handles){
         ValueDict* tableName = tables->project(h);
-        cout << (*tableName)["table_name"].s << endl;
+        tableNameList->push_back((*tableName)["table_name"].s);
         DbRelation* table = &tables->get_table((*tableName)["table_name"].s);
         tableList.push_back(table);
     }
-    return tableList;
+
+    return pair<vector<DbRelation*>, vector<Identifier>*>(tableList, tableNameList);
 }

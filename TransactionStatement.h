@@ -2,10 +2,8 @@
 #define TRANSACTION_STATEMENT_H
 
 #include "../sql-parser/src/sql/SQLStatement.h"
-// #include "../sql-parser/Table.h"
 
-// Note: Implementations of constructors and destructors can be found in statements.cpp.
-  // Represents SQL Begin statements.
+  // Represents SQL transaction statements.
   // Example "BEGIN TRANSACTION;"
 
 // Precondition: CHECKPOINT should not be used by the client; that is only for the DBMS transaction manager to use
