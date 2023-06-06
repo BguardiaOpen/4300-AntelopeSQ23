@@ -134,3 +134,24 @@ void TransactionManager::releaseLock(int transactionID, int fileDescriptor){
 int TransactionManager::getCurrentTransactionID(){
     return (transactionStack.empty() ? -1 : transactionStack.top());
 }
+void TransactionManager::checkpoint(int transactionID, DbRelation& table)
+{
+    vector<int> transArr;
+    transArr.push_back(transactionID);
+    
+    vector<DbRelation table> tableArr;
+    tableArr.push_back(tableArr);
+}
+
+int TransactionManager::retrieveTransaction(int transactionID)
+{
+    int id = 0;
+    for(int i = 0; i < transArr.size(); i++)
+    {
+        if(transArr[i] == transactionID)
+        {
+            id = transactionID;
+        }
+    }
+    return id;
+}
