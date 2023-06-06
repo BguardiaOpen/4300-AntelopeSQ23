@@ -44,7 +44,6 @@ using namespace std;
 
             // returns a list of the transactions that are currently active in the database system
             vector<int> getActiveTransactions(){ return activeTransactions; } 
-            void printLog();
 
             // For every SQLExec method that's called within a transaction, that method MUST call this to 
             // update the list of tables and table names stored in TransactionManager, but only AFTER all locks are released.
