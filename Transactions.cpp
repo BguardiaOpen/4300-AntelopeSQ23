@@ -129,10 +129,13 @@ void TransactionManager::releaseLock(int transactionID, int fileDescriptor){
     else cout << "Successfully closed the file" << endl;
 }
 
-void TransactionManager::checkpoint(int transactionID)
+void TransactionManager::checkpoint(int transactionID, DbRelation& table)
 {
     vector<int> transArr;
     transArr.push_back(transactionID);
+    
+    vector<DbRelation table> tableArr;
+    tableArr.push_back(tableArr);
 }
 
 int TransactionManager::retrieveTransaction(int transactionID)
