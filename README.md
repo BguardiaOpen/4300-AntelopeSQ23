@@ -39,7 +39,8 @@ export PYTHONPATH=/usr/local/db6/lib/site-packages:$PYTHONPATH
 
 ## Milestone 5/6 Example
 
-Instance 1:
+#Instance 1:
+
 SQL> create table foo (id int, data text)
 CREATE TABLE foo (id INT, data TEXT)
 created foo
@@ -76,7 +77,8 @@ SQL> commit transaction
 successfully committed transaction level 1
 SQL> quit
 
-Instance 2, right after Instance 1 ran begin transaction:
+#Instance 2, right after Instance 1 ran begin transaction:
+
 SQL> select * from foo
 SELECT * FROM foo
 id data 
