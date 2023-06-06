@@ -91,6 +91,7 @@ id data
 successfully returned 3 rows
 
 Instance 2, right after Instance 1 ran INSERT INTO foo VALUES (4, "four"):
+
 SQL> select * from foo
 SELECT * FROM foo
 Waiting for lock - table foo
