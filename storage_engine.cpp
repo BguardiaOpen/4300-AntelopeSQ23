@@ -52,22 +52,18 @@ ColumnAttributes *DbRelation::get_column_attributes(const ColumnNames &select_co
 
 // Do a projection for each of a list of handles
 ValueDicts *DbRelation::project(Handles *handles) {
-    std::cout << std::endl << "In project (handles)" << std::endl;
     ValueDicts *ret = new ValueDicts();
     for (auto const &handle: *handles)
         ret->push_back(project(handle));
-    std::cout  << "returning from project(handles)" << std::endl;
     return ret;
 }
 
 // Do a projection for each of a list of handles
 ValueDicts *DbRelation::project(Handles *handles, const ColumnNames *column_names) {
-    std::cout << std::endl << "in project(handles, colNames)" << std::endl;
     ValueDicts *ret = new ValueDicts();
     for (auto const &handle: *handles)
         ret->push_back(project(handle, column_names));
 
-    std::cout  << "returning from project(handles, colNames)" << std::endl;
     return ret;
 }
 
