@@ -12,7 +12,6 @@ void TransactionManager::begin_transaction(){
     // add a new transaction to the stack
     transactionStack.push(highestTransactionID);
     cout << "Opened transaction level " << transactionStack.size() << endl;
-    printLog();
 }
 
 void TransactionManager::updateTablesAndNames(){
@@ -25,16 +24,6 @@ void TransactionManager::updateTablesAndNames(){
     pair<vector<DbRelation *>, vector<Identifier>*> tablesAndNames = SQLExec::saveTablesAndNames();
     currentTables = tablesAndNames.first;
     tableNames = tablesAndNames.second;
-}
-
-void TransactionManager::printLog(){
-    for(TransactionLogRecord rec : transactionLog){
-        cout << "ID: " << rec.transactionID 
-             << (rec.statement == nullptr ? " SQL statement is null" : " Statement type: " + rec.statement->type())
-             << (rec.transactionStatement == nullptr ? " Trans statement is null" : " Statement type: " + rec.transactionStatement->type)
-             << (rec.checkpointTables == nullptr ? " No checkpoint tables" : "Checkpoint tables list size: " + rec.checkpointTables->size())
-             << endl;
-    }
 }
 
 // commits the current transaction (the one at the top of the stack)
@@ -67,7 +56,6 @@ void TransactionManager::commit_transaction(){
     cout << "Transaction level " << oldNumTransactions << " committed, " <<
                             (transactionStack.empty() ? "no" : to_string(transactionStack.size()))
                             << " transactions pending" << endl;
-    printLog();
 }
 
 // rolls back the current transaction (the one at the top of the stack)
@@ -101,7 +89,6 @@ void TransactionManager::rollback_transaction(){
     }
 
     if(i < 0) throw TransactionManagerError("No checkpoint was added before rolling back");
-    // TransactionLogRecord checkpointRec = transactionLog[i];
 
     // @ Prof Guardia, we wrote how we would implement rollback, hoping you could give us partial credit 
     // see if any tables were created or dropped between the last checkpoint and now
