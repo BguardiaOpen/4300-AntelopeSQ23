@@ -1,18 +1,18 @@
-# 4300-Echidna
+# 4300-Antelope
 ## Description
-DB Relation Manager project for CPSC4300 at Seattle U, Spring 2023, Project Echidna
+DB Relation Manager project for CPSC4300 at Seattle U, Spring 2023, Project Antelope
 
 ## New Features
-### Milestone 3
-Executes `CREATE`, `DROP`, and `SHOW` SQL statements in a Berkeley DB Database. `SHOW` statements can handle displaying tables and columns.
+### Milestone 5 
+Executes INSERT and SELECT statements, and contains the structure for BEGIN / COMMIT / ROLLBACK of transactions.
 
-### Milestone 4
-Builds off of Milestone 3 to `CREATE`, `DROP`, and `SHOW` indices as well as tables.
+### Milestone 6
+Builds off of Milestone 5 and creates locks that handle transactions 
 
 ## Installation
 1. Clone the repository on CS1
 
-` git clone https://github.com/BguardiaOpen/4300-Echidna23SQ.git `
+` git clone https://github.com/BguardiaOpen/4300-AntelopeSQ23.git `
 
 2. Ensure the ` .bash_profile ` path is configured correctly
 
@@ -35,6 +35,69 @@ export PYTHONPATH=/usr/local/db6/lib/site-packages:$PYTHONPATH
 
     * SQL `CREATE`, `DROP`, and `SHOW` statements (see example)
     * ` quit ` exits the program
+
+
+## Milestone 5/6 Example
+
+Instance 1:
+SQL> create table foo (id int, data text)
+CREATE TABLE foo (id INT, data TEXT)
+created foo
+SQL> insert into foo values (1,"one");insert into foo values(2,"two"); insert into foo values (2, "another two")
+INSERT INTO foo VALUES (1, "one")
+successfully inserted 1 row into foo
+INSERT INTO foo VALUES (2, "two")
+successfully inserted 1 row into foo
+INSERT INTO foo VALUES (2, "another two")
+successfully inserted 1 row into foo
+SQL> select * from foo
+SELECT * FROM foo
+id data 
++----------+----------+
+1 "one" 
+2 "two" 
+2 "another two" 
+successfully returned 3 rows
+SQL> begin transaction
+BEGIN TRANSACTION - level 1
+SQL> insert into foo values (4,"four");
+INSERT INTO foo VALUES (4, "four")
+successfully inserted 1 row into foo
+SQL> select * from foo
+SELECT * FROM foo
+id data 
++----------+----------+
+1 "one" 
+2 "two" 
+2 "another two" 
+4 "four" 
+successfully returned 4 rows
+SQL> commit transaction
+successfully committed transaction level 1
+SQL> quit
+
+Instance 2, right after Instance 1 ran begin transaction:
+SQL> select * from foo
+SELECT * FROM foo
+id data 
++----------+----------+
+1 "one" 
+2 "two" 
+2 "another two" 
+successfully returned 3 rows
+
+Instance 2, right after Instance 1 ran INSERT INTO foo VALUES (4, "four"):
+SQL> select * from foo
+SELECT * FROM foo
+Waiting for lock - table foo
+
+id data 
++----------+----------+
+1 "one" 
+2 "two" 
+2 "another two" 
+4 "four" 
+successfully returned 4 rows
 
 ## Example
 
