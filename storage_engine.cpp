@@ -56,7 +56,7 @@ ValueDicts *DbRelation::project(Handles *handles) {
     for (auto const &handle: *handles)
         ret->push_back(project(handle));
     return ret;
-}
+} 
 
 // Do a projection for each of a list of handles
 ValueDicts *DbRelation::project(Handles *handles, const ColumnNames *column_names) {
