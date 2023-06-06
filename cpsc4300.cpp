@@ -11,8 +11,18 @@
 #include "ParseTreeToString.h"
 #include "LockTableTests.cpp"
 #include "SQLExec.h"  
+#include "TransactionStatement.h"
+#include "TransactionTests.h"
 using namespace std;
 using namespace hsql;
+
+const string QUIT = "QUIT"; // enter this to quit program
+const string TEST = "TEST"; // enter this to run tests
+
+// syntax for the transaction commands
+const string BEGIN_TRANSACTION = "BEGIN TRANSACTION"; 
+const string COMMIT_TRANSACTION = "COMMIT TRANSACTION"; 
+const string ROLLBACK_TRANSACTION = "ROLLBACK TRANSACTION"; 
 
 
 string parse(const SQLStatement* result);
@@ -23,8 +33,10 @@ string parseInsert(const InsertStatement *statement);
 string parseCreate(const CreateStatement *stmt);
 string parseSelect(const SelectStatement *stmt);
 string parseShow(const ShowStatement *stmt);
+string stringToUppercase(string s);
 
 // Converts a transaction command to a TransactionStatement
+// Precondition: the command must be a begin, commit, or rollback statement.
 TransactionStatement parseTransactionCommand(string command);
 
 
@@ -59,32 +71,33 @@ int main(int argc, char **argv) {
         string sqlCmd;
         cout << "SQL> ";
         getline(cin, sqlCmd);
-        string sqlcmd;
 
-        // convert string to uppercase
-        for(char ch : sqlCmd){
-            sqlcmd += toupper(ch);
-        }
-        if(sqlcmd == "QUIT"){
+        // uppercase version of the command to support case-insensitivity and transaction parsing
+        string uppercaseCommand = stringToUppercase(sqlCmd);
+
+        if(uppercaseCommand == QUIT){
             break;
-        }if(sqlcmd == "TEST"){
-            LockTableTests::runAll();
+        }if(uppercaseCommand == "TEST"){
+            TransactionTests::testAll();
+        }
         // Handle transaction commands separately
-        }if(sqlcmd.find("TRANSACTION") != string::npos){
-            TransactionStatement transactionStmt = parseTransactionCommand(sqlcmd);
+        // See if the string contains "TRANSACTION"
+        if(uppercaseCommand.find("TRANSACTION") != string::npos){
+            TransactionStatement transactionStmt = parseTransactionCommand(uppercaseCommand);
             try {
                 // cout << ParseTreeToString::statement(statement) << endl;
-                QueryResult *q_result = SQLExec::execute((SQLStatement*)&transactionStmt);
+                QueryResult *q_result = SQLExec::execute_transaction_command(&transactionStmt);
                 cout << *q_result << endl;
                 delete q_result;
             }
             catch (SQLExecError &e) {
                         cerr << e.what() << endl;
             }
-        }else{
-            SQLParserResult* result = SQLParser::parseSQLString(sqlcmd);
+        }
+        else{
+            SQLParserResult* result = SQLParser::parseSQLString(sqlCmd);
             if(!result->isValid()){
-                cout << "Invalid command: " << sqlcmd << endl;
+                cout << "Invalid command: " << sqlCmd << endl;
             } else {
                 for(uint i = 0; i < result->size(); ++i){
                     const SQLStatement* statement = result->getStatement(i);
@@ -108,15 +121,28 @@ int main(int argc, char **argv) {
     return 0;
 } 
 
+// convert string to uppercase
+string stringToUppercase(string s){
+    string result = "";
+        for(char ch : s){
+            result += toupper(ch);
+        }
+    return result;
+}
+
 TransactionStatement parseTransactionCommand(string command){
-    // remove whitespace in case there's more than one whitespace character
-    string::iterator it1 = remove(command.begin(), command.end(), ' ');
-    string::iterator it2 = remove(command.begin(), command.end(), '\n');
-    string::iterator it3 = remove(command.begin(), command.end(), '\t');
+    // later can remove whitespace in case there's more than one whitespace character
+    // and check for invalid transaction command
+    // string::iterator it1 = remove(command.begin(), command.end(), ' ');
+    // string::iterator it2 = remove(command.begin(), command.end(), '\n');
+    // ::iterator it3 = remove(command.begin(), command.end(), '\t');
 
-
-    cout << "String w/o spaces: " << *it1 << endl;
-    return TransactionStatement(TransactionStatement::BEGIN);
+    if(command == BEGIN_TRANSACTION)
+        return TransactionStatement(TransactionStatement::BEGIN);
+    if(command == ROLLBACK_TRANSACTION)
+        return TransactionStatement(TransactionStatement::ROLLBACK);
+    
+    return TransactionStatement(TransactionStatement::COMMIT);
 }
 
 string expressionToString(const Expr *expr) {

@@ -42,7 +42,6 @@ void HeapTable::drop() {
 //as above, so below
 void HeapTable::open() {
     file.open();
-    cout << "returning from HeapTable::open" << endl;
 }
 
 //closes the table
@@ -95,7 +94,6 @@ Handles *HeapTable::select() {
 
     // cout << "returning from empty select" << endl;
     // return handles;
-    cout << "In empty select" << endl;
     return select(nullptr);
 }
 
@@ -152,24 +150,22 @@ bool HeapTable::selected(Handle handle, const ValueDict *where) {
 
 // Just pulls out the column names from a ValueDict and passes that to the usual form of project().
 ValueDict *HeapTable::project(Handle handle, ValueDict where) {
-    cout << endl << "In HeapTable::project( handle,  where) " << endl;
     ColumnNames t;
     for (auto const &column: where)
         t.push_back(column.first);
 
-    cout << "returning from HeapTable::project( handle,  where) " << endl;
+    // cout << "returning from HeapTable::project( handle,  where) " << endl;
     return this->project(handle, &t);
 }
 
 // I guess this is just a public call so that you can use it when you only have the handle.  It figures out the column names and goes and grabs them.
 ValueDict *HeapTable::project(Handle handle) {
-    cout << endl << "In HeapTable::project( handle) " << endl;
+    // cout << endl << "In HeapTable::project( handle) " << endl;
     return project(handle, &this->column_names);
 }
 
 // This is the part that actually does the projecting.  
 ValueDict *HeapTable::project(Handle handle, const ColumnNames *column_names) {
-    cout << endl << "In HeapTable::project( handle,  columnNames) " << endl;
 
     BlockID block_id = handle.first;
     RecordID record_id = handle.second;
@@ -188,7 +184,7 @@ ValueDict *HeapTable::project(Handle handle, const ColumnNames *column_names) {
     }
     delete row;
 
-    cout << "returning from HeapTable::project( handle,  colNames) " << endl;
+    // cout << "returning from HeapTable::project( handle,  colNames) " << endl;
 
     return result;
 }

@@ -8,6 +8,7 @@
 #include "SchemaTables.h"
 #include "EvalPlan.h"
 #include "storage_engine.h"
+#include "Transactions.h"
 #include <iostream>
 
 using namespace std;
@@ -16,6 +17,7 @@ using namespace hsql;
 // define static data
 Tables *SQLExec::tables = nullptr;
 Indices *SQLExec::indices = nullptr;
+TransactionManager SQLExec::tm = TransactionManager();
 
 // make query result be printable
 ostream &operator<<(ostream &out, const QueryResult &qres) {
@@ -71,17 +73,16 @@ QueryResult::~QueryResult() {
  * @return QueryResult* the result of the statement
  */
 QueryResult *SQLExec::execute(const SQLStatement *statement) {
-    cout << endl << "in SQLExec::Execute()" << endl;
     // Initializes _tables table if not null
     if (SQLExec::tables == nullptr) {
         SQLExec::tables = new Tables();
         SQLExec::indices = new Indices();
     }
 
-    // initialize stack
-    // transactionStack = std::stack<TransactionStatement>();
-
-    cout << endl << "Entering try block" << endl;
+    // initialize transaction manager
+    // if(SQLExec::tm == nullptr)
+    //     SQLExec::tm = TransactionManager();
+    
     try {
         switch (statement->type()) {
             case kStmtCreate:
@@ -93,7 +94,6 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
             case kStmtInsert:
                 return insert((const InsertStatement *) statement);
             case kStmtSelect:
-                cout << "In select case of switch stmt" << endl;
                 return select((const SelectStatement *) statement);
             default:
                 return new QueryResult("not implemented");
@@ -101,6 +101,23 @@ QueryResult *SQLExec::execute(const SQLStatement *statement) {
     } catch (DbRelationError &e) {
         throw SQLExecError(string("DbRelationError: ") + e.what());
     }
+}
+
+QueryResult *SQLExec::execute_transaction_command(const TransactionStatement *statement){
+    switch(statement->type){
+        case TransactionStatement::BEGIN:
+            tm.begin_transaction();
+            return new QueryResult("Successfully executed begin transaction");
+        case TransactionStatement::COMMIT:
+            tm.commit_transaction();
+            return new QueryResult("Successfully executed commit transaction");
+        case TransactionStatement::ROLLBACK:
+            tm.rollback_transaction();
+            return new QueryResult("Successfully executed rollback transaction");
+        default:
+            return new QueryResult("invalid transaction type");
+    }
+    return new QueryResult("invalid transaction type");
 }
 
 /**
@@ -131,60 +148,65 @@ void SQLExec::column_definition(const ColumnDefinition *col, Identifier &column_
  * @return QueryResult* the result of the create statement
  */
 QueryResult *SQLExec::create(const CreateStatement *statement) {
+    // don't need transaction handling for create since it creates a new file, it doesn't 
+    // modify an existing one. 
+    // In case 2 transactions create the same table, HeapFile::create handles the case that
+    // the table already exists 
+
     //check create type (future proofed for other types)
     switch(statement->type) {
         // ATTRIBUTION: we copied create table from Prof. Lundeen's solution repo
         case CreateStatement::kTable: 
             { 
                 Identifier table_name = statement->tableName;
-    ColumnNames column_names;
-    ColumnAttributes column_attributes;
-    Identifier column_name;
-    ColumnAttribute column_attribute;
-    for (ColumnDefinition *col : *statement->columns) {
-        column_definition(col, column_name, column_attribute);
-        column_names.push_back(column_name);
-        column_attributes.push_back(column_attribute);
-    }
+                ColumnNames column_names;
+                ColumnAttributes column_attributes;
+                Identifier column_name;
+                ColumnAttribute column_attribute;
+                for (ColumnDefinition *col : *statement->columns) {
+                    column_definition(col, column_name, column_attribute);
+                    column_names.push_back(column_name);
+                    column_attributes.push_back(column_attribute);
+                }
 
-    // Add to schema: _tables and _columns
-    ValueDict row;
-    row["table_name"] = table_name;
-    Handle t_handle = SQLExec::tables->insert(&row);  // Insert into _tables
-    try {
-        Handles c_handles;
-        DbRelation &columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
-        try {
-            for (uint i = 0; i < column_names.size(); i++) {
-                row["column_name"] = column_names[i];
-                row["data_type"] = Value(column_attributes[i].get_data_type() == ColumnAttribute::INT ? "INT" : "TEXT");
-                c_handles.push_back(columns.insert(&row));  // Insert into _columns
-            }
+                // Add to schema: _tables and _columns
+                ValueDict row;
+                row["table_name"] = table_name;
+                Handle t_handle = SQLExec::tables->insert(&row);  // Insert into _tables
+                try {
+                    Handles c_handles;
+                    DbRelation &columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
+                    try {
+                        for (uint i = 0; i < column_names.size(); i++) {
+                            row["column_name"] = column_names[i];
+                            row["data_type"] = Value(column_attributes[i].get_data_type() == ColumnAttribute::INT ? "INT" : "TEXT");
+                            c_handles.push_back(columns.insert(&row));  // Insert into _columns
+                        }
 
-            // Finally, actually create the relation
-            DbRelation &table = SQLExec::tables->get_table(table_name);
-            if (statement->ifNotExists)
-                table.create_if_not_exists();
-            else
-                table.create();
+                        // Finally, actually create the relation
+                        DbRelation &table = SQLExec::tables->get_table(table_name);
+                        if (statement->ifNotExists)
+                            table.create_if_not_exists();
+                        else
+                            table.create();
 
-        } catch (...) {
-            // attempt to remove from _columns
-            try {
-                for (auto const &handle: c_handles)
-                    columns.del(handle);
-            } catch (...) {}
-            throw;
-        }
+                    } catch (...) {
+                        // attempt to remove from _columns
+                        try {
+                            for (auto const &handle: c_handles)
+                                columns.del(handle);
+                        } catch (...) {}
+                        throw;
+                    }
 
-    } catch (exception &e) {
-        try {
-            // attempt to remove from _tables
-            SQLExec::tables->del(t_handle);
-        } catch (...) {}
-        throw;
-    }
-    return new QueryResult("created " + table_name);
+                } catch (exception &e) {
+                    try {
+                        // attempt to remove from _tables
+                        SQLExec::tables->del(t_handle);
+                    } catch (...) {}
+                    throw;
+                }
+                return new QueryResult("created " + table_name);
             }
             // ATTRIBUTION: We copied the following code for CREATE INDEX from
             // the Milestone 4 tag of Prof. Lundeen's solution repository
@@ -236,6 +258,36 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
     return nullptr;
 }
 
+// If there's a transaction currently running, requests a lock on the table file.
+// Returns a pair of (file descriptor for the DB file for the table, ID of the current transaction)
+// so that releaseLock can use those. Returns a pair of (-1, -1) if there are no transactions running
+// @param stmt: a SQL statement that's inside the transaction
+// @param tableToAccess: table being read or written to by the statement
+pair<int, int> SQLExec::requestLock(SQLStatement* stmt, Identifier tableToAccess){
+    // check if there are transactions in the active transaction list
+    if(tm.getActiveTransactions().size() > 0){
+        int fd = tm.getFD(tableToAccess); // get FD for table
+        int currentTransID = tm.getCurrentTransactionID(); // transaction ID of this transaction
+
+        if(currentTransID == -1) // check if stack is empty again, just in case
+            return std::pair<int, int>(-1, -1);
+        
+        tm.tryToGetLock(currentTransID, *stmt, fd);
+        return std::pair<int, int>(fd, currentTransID);
+    }
+
+    return std::pair<int, int>(-1, -1); // if there are no active transactions
+}
+
+// If a transaction is executing and has a lock, this releases the lock. If no transactions, does nothing.
+// @param fdAndID: a pair with the first element being the file descriptor of the DB file being accessed by the statement,
+//                 and the second element being the ID of the transaction that's executing a statement
+void SQLExec::releaseLock(pair<int, int> fdAndID){
+    if(fdAndID != pair<int, int>(-1, -1))
+        tm.releaseLock(fdAndID.first, fdAndID.second);
+    tm.updateTablesAndNames();
+}
+
 /**
  * @brief Executes a drop statement
  * 
@@ -243,6 +295,7 @@ QueryResult *SQLExec::create(const CreateStatement *statement) {
  * @return QueryResult* the result of the drop statement
  */
 QueryResult *SQLExec::drop(const DropStatement *statement) {
+
     switch(statement->type) {
         case DropStatement::kTable:
             //new scope block to prevent any scoping issues/warnings with "default"
@@ -252,7 +305,8 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
                 if(tableName == Tables::TABLE_NAME || tableName == Columns::TABLE_NAME)
                     throw SQLExecError("Error: schema tables cannot be dropped");
 
-
+                pair<int, int> fdAndID = requestLock((SQLStatement*)statement, tableName); // request lock on table to drop
+                
                 DbRelation &table = SQLExec::tables->get_table(tableName);
                 ValueDict where;
                 where["table_name"] = Value(tableName);
@@ -281,12 +335,17 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
                 Handles* tableHandles = SQLExec::tables->select(&where);
                 SQLExec::tables->del(*tableHandles->begin());
                 delete tableHandles;
+
+                
+                releaseLock(fdAndID); // if this statement is part of a transaction, release the lock
             }
             return new QueryResult("Table successfully dropped!");
         case DropStatement::kIndex:
             {
                 Identifier tableName = statement->name;
                 Identifier indexName = statement->indexName;
+
+                pair<int, int> fdAndID = requestLock((SQLStatement*)statement, indexName); // request lock on index to drop
 
                 DbIndex &index = SQLExec::indices->get_index(tableName, indexName);
                 index.drop();
@@ -300,6 +359,8 @@ QueryResult *SQLExec::drop(const DropStatement *statement) {
                     SQLExec::indices->del(handle);
                 }
                 delete handleList;
+
+                releaseLock(fdAndID); // if this statement is part of a transaction, release the lock
 
                 return new QueryResult("Index successfully dropped");
             }
@@ -338,6 +399,12 @@ QueryResult *SQLExec::show_tables() {
     ColumnAttributes *colAttributes = new ColumnAttributes();
     colAttributes->push_back(ColumnAttribute(ColumnAttribute::TEXT));
 
+    // show tables statement to pass to requestLock
+    SQLStatement stmt = ShowStatement(ShowStatement::EntityType::kTables);
+
+    // lock _tables schema table
+    pair<int, int> fdAndID = requestLock(&stmt, Tables::TABLE_NAME);
+
     Handles *handles = SQLExec::tables->select();
     ValueDicts *rows = new ValueDicts;
     for (auto &handle: *handles) {
@@ -351,6 +418,7 @@ QueryResult *SQLExec::show_tables() {
 
 
     delete handles;
+    releaseLock(fdAndID);
     return new QueryResult(colNames, colAttributes, rows, "showing tables");
 }
 
@@ -361,6 +429,9 @@ QueryResult *SQLExec::show_tables() {
  * @return QueryResult* the result of show
  */
 QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
+    // lock _columns schema table
+    pair<int, int> fdAndID = requestLock((SQLStatement*)statement, Columns::TABLE_NAME);
+
     DbRelation &columns = SQLExec::tables->get_table(Columns::TABLE_NAME);
 
     ColumnNames *column_names = new ColumnNames();
@@ -383,6 +454,7 @@ QueryResult *SQLExec::show_columns(const ShowStatement *statement) {
     }
 
     delete handles;
+    releaseLock(fdAndID);
     return new QueryResult(column_names, column_attributes, rows, "showing columns");
 }
 
@@ -410,6 +482,9 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement) {
 
     ValueDict location;
     location["table_name"] = Value(statement->tableName);
+
+    // lock _tables schema table
+    pair<int, int> fdAndID = requestLock((SQLStatement*)statement, Indices::TABLE_NAME);
     Handles *handleList = SQLExec::indices->select(&location);
 
     ValueDicts *rows = new ValueDicts;
@@ -418,6 +493,7 @@ QueryResult *SQLExec::show_index(const ShowStatement *statement) {
         rows->push_back(row);
     }
     delete handleList;
+    releaseLock(fdAndID);
     return new QueryResult(colNames, colAttr, rows, "showing indices");
 }
 
@@ -438,6 +514,8 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
     }
 
     delete handles; 
+
+    pair<int, int> fdAndID = requestLock((SQLStatement*)statement, statement->tableName); 
 
     // construct the ValueDict, making sure it's in the same order as the order of columns in the table
     ValueDict rowToInsert;
@@ -486,15 +564,7 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
 
             // add the pair to the end of rowToInsert in the right order
             rowToInsert.insert(rowToInsert.end(), {colNames[i], valueToInsert});
-            cout << "end of iteration"<<endl;
         }
-    }
-
-    cout << "Row to insert: ";
-    for(auto elem : rowToInsert) {
-    cout << elem.first << ", " 
-         << (elem.second.data_type == ColumnAttribute::DataType::INT ? to_string(elem.second.n) :
-            elem.second.s) << " | ";
     }
 
     // insert the row into the table
@@ -510,6 +580,8 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
     delete handles;
     table.insert(&rowToInsert);
 
+    releaseLock(fdAndID);
+
     // insert into any indices
     IndexNames indexNames = indices->get_index_names(statement->tableName);
     int numIndices = indexNames.size();
@@ -518,6 +590,9 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
         ValueDict indexRowToInsert; // the row to insert into _indices
 
         for(string indexName : indexNames){
+            // need to request a lock on each index too
+            fdAndID = requestLock((SQLStatement*)statement, indexName);
+
             // don't need to check if the index exists since it's in indexNames
             DbIndex& index = indices->get_index(statement->tableName, indexName);
 
@@ -529,6 +604,8 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
             // handles should contain only one row
             index.insert((*handles)[0]);
             delete handles;
+
+            releaseLock(fdAndID);
         }
     }
 
@@ -545,138 +622,75 @@ QueryResult *SQLExec::insert(const InsertStatement *statement) {
     return new QueryResult(message);
 }
 
-// The SELECT should translate into an evaluation plan with a projection 
-// plan on a select plan. The enclosed select plan should be annotated with a table scan.
-// For select, your job is to create an evaluation plan and execute it. Start the plan 
-// with a TableScan:
- 
-// Note that we then wrap that in a Select plan. The get_where_conjunction is just a 
-// local recursive 
-// function that pulls apart the parse tree to pull out any equality predicates and 
-// AND operations (other conditions throw an exception). Next we would wrap the 
-// whole thing in either a ProjectAll or a Project. Note that I've added a new method 
-// to DbRelation, get_column_attributes(ColumnNames) that will get the attributes (for
-//  returning in the QueryResults) based on the projected column names.
-// Next we optimize the plan and evaluate it to get our results for the user.
-
-// Precondition: for now, no nested queries/select statements; you can only select from a table.
+// Precondition: no nested queries/select statements; you can only select from a table.
 QueryResult *SQLExec::select(const SelectStatement *statement) {
     // throw an error if statement->fromTable is not a table name
     if(statement->fromTable->type != TableRefType::kTableName)
         return new QueryResult("Error: only selecting from a single table is supported");
 
-    cout << "in select" << endl;
     Identifier tableName = statement->fromTable->getName(); // name of table to select from
+
+    pair<int, int> fdAndID = requestLock((SQLStatement*)statement, tableName);
+
     DbRelation& table = tables->get_table(tableName); // get the DbRelation for the table
     TableScanPlan tableScan = TableScanPlan(&table); // start with table scan
     SelectPlan selectPlan = SelectPlan(&tableScan);    // wrap that in a SelectPlan
 
+    // get all column names and attributes in the table
+    ColumnNames allColNames; // all column names in the table
+    ColumnAttributes allColAttrs; // all column attributes in the table
+    tables->get_columns(tableName, allColNames, allColAttrs);
+
     // determine whether all columns are being selected or only some
     ColumnNames colsToSelect;
-    ColumnAttributes colAttrs;
     bool selectAllColumns = false; // whether all columns are selected
 
-    cout << "length: " << statement->selectList->size() << endl;
-
-    for(Expr* expr : *statement->selectList){ 
-        cout << expr->expr << endl;
-        cout << "type: " << expr->type << endl; // type of expression
-
+    for(Expr* expr : *statement->selectList){
+        // Assume the only types are kExprStar and kExprColumnRef. If the statement is "SELECT *", 
+        // then the length of the select list would be 1. Otherwise, get the column names being selected
+        if(expr->type == kExprStar) selectAllColumns = true;
+        else colsToSelect.push_back(expr->getName());
     }
 
-    // get list of columns to project or "*"    
-    for(long unsigned int i = 0; i < statement->selectList->size(); i++){
-        Expr* expr = (*statement->selectList)[i];
-        hsql::ExprType exprType = expr->type; // type of expression
-
-        // assume the only types can be kExprStar and kExprColumnRef for now
-        // if the statement is "SELECT *", then the length of the select list would be 1.
-        // otherwise, get all column names.
-        if(exprType == kExprStar)
-            selectAllColumns = true;
-        else
-            colsToSelect.push_back(expr->getName());
-
-        // delete expr;
-    }
-
-    cout << "end of loop" << endl;
-
-    // re-declaring variables since there's no empty ctor or assignment operator for EvalPlan
-    if(!selectAllColumns){
-        cout << "not selecting all cols" << endl;
-
-        EvalPlan projection = EvalPlan(false, colsToSelect, &selectPlan);
-        
-        // cout << "optimizing" << endl;
-        // EvalPlan optimizedPlan = projection.optimize();
-        
-        cout << "evaluating" << endl;
-        ValueDicts result = projection.evaluate();
-
-        cout << "getting cols" << endl;
-
-        tables->get_columns(tableName, colsToSelect, colAttrs); // get all column names since we didn't get them in the loop
-        cout << "returning from SQLExec::Select()" << endl;
-        return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);
-    }
-
-    cout << "selecting all cols" << endl;
-        
-    EvalPlan projection = EvalPlan(true, ColumnNames(), &selectPlan);
-
-    cout << "Getting col attrs" << endl;
-    colAttrs = *tables->get_column_attributes(colsToSelect);
-
-    cout << "optimizing" << endl;
-    // EvalPlan optimizedPlan = projection.optimize();
-
-    cout << "evaluating" << endl;
+    // We can pass colsToSelect in both cases since the column names will be ignored if projecting all columns.
+    EvalPlan projection = EvalPlan(selectAllColumns ? true : false, colsToSelect, &selectPlan);
     ValueDicts result = projection.evaluate();
+    ColumnAttributes selectedColAttrs; // if it's not a select * statement, these are the attributes of only the columns being selected   
 
-    cout << "returning" << endl;
-    return new QueryResult(&colsToSelect, &colAttrs, &result, SUCCESS_MESSAGE);
-}
+    if(!selectAllColumns){        
+        // Need to get the column attributes only corresponding to the columns we're selecting
+        for(Identifier selectedColName : colsToSelect){
+            // get an iterator to the location of selectedColName in allColNames
+            ColumnNames::iterator it = find(allColNames.begin(), allColNames.end(), selectedColName);
 
-QueryResult *SQLExec::execute_transaction_command(const TransactionStatement *statement){
-    switch(statement->type){
-        case TransactionStatement::BEGIN:
-            return begin_transaction(statement);
-        case TransactionStatement::COMMIT:
-            return commit_transaction(statement);
-        case TransactionStatement::ROLLBACK:
-            return rollback_transaction(statement);
-        default:
-            throw SQLExecError("invalid transaction type");
+            // get the index of selectedColName in allColNames, which is also the index of that column's
+            // attribute in allColAttrs
+            int index = distance(allColNames.begin(), it);
+
+            // get the column attribute corresponding to selectedColName; add it to the list of attributes
+            selectedColAttrs.push_back(allColAttrs[index]);
+        }   
+
+        releaseLock(fdAndID);
+        return new QueryResult(&colsToSelect, &selectedColAttrs, &result, SUCCESS_MESSAGE);
     }
+
+    releaseLock(fdAndID);
+    return new QueryResult(&allColNames, &allColAttrs, &result, SUCCESS_MESSAGE);
 }
 
-QueryResult *SQLExec::begin_transaction(const TransactionStatement *statement){
-    transactionStack.push(*statement);
-    return new QueryResult("Opened transaction level " + transactionStack.size());
-}
+pair<vector<DbRelation*>, vector<Identifier>*> SQLExec::saveTablesAndNames(){
+    vector<DbRelation*> tableList; // list of all DbRelations for tables
+    vector<Identifier>* tableNameList = new vector<Identifier>(); // list of all names of tables
+    Handles* handles = tables->select(); // get handles to all table names
 
-QueryResult *SQLExec::commit_transaction(const TransactionStatement *statement){
-    if(transactionStack.empty())
-        throw SQLExecError("Attempted to commit a transaction when there are no transactions pending");
-    
-    int oldNumTransactions = transactionStack.size(); // number of transactions before popping stack
-    transactionStack.pop();
+    // get DbRelations for all the tables
+    for(Handle h : *handles){
+        ValueDict* tableName = tables->project(h);
+        tableNameList->push_back((*tableName)["table_name"].s);
+        DbRelation* table = &tables->get_table((*tableName)["table_name"].s);
+        tableList.push_back(table);
+    }
 
-
-    return new QueryResult("Transaction level " + to_string(oldNumTransactions) + " committed, " + 
-                            (transactionStack.empty() ? "no" : to_string(transactionStack.size()))
-                            + " transactions pending");
-}
-
-QueryResult *SQLExec::rollback_transaction(const TransactionStatement *statement){
-    if(transactionStack.empty())
-        throw SQLExecError("Attempted to roll back a transaction when there are no transactions pending");
-    
-    int oldNumTransactions = transactionStack.size(); // number of transactions before popping stack
-    transactionStack.pop();
-
-    return new QueryResult("Transaction level " + to_string(oldNumTransactions) + " rolled back, " + 
-                            (transactionStack.empty() ? "no" : to_string(transactionStack.size()))
-                            + " transactions pending");
+    return pair<vector<DbRelation*>, vector<Identifier>*>(tableList, tableNameList);
 }

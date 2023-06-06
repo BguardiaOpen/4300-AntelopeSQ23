@@ -21,9 +21,11 @@ SelectPlan::SelectPlan(TableScanPlan* tableScanPlan){
     tableScan = tableScanPlan;
 }
 
-SelectPlan::~SelectPlan(){
-    delete tableScan;
-}
+// SelectPlan::~SelectPlan(){
+//     cout << "In SelectPlan dtor" << endl;
+
+//     // delete tableScan;
+// }
 
 EvalPipeline SelectPlan::pipeline(){
     DbRelation* table = tableScan->getTable(); // the table in the TableScanPlan
@@ -37,24 +39,21 @@ EvalPlan::EvalPlan(bool projectAllColumns, ColumnNames projectionColumns, Select
 }
 
 ValueDicts EvalPlan::evaluate(){
-    cout << "In evaluate" << endl;
     ValueDicts ret;
     
-    cout << "calling pipeline" << endl;
     EvalPipeline pipeline = selectPlan->pipeline();
     DbRelation* temp_table = pipeline.first;
     Handles handles = pipeline.second;
 
-    cout << "Doing project" << endl;
     if (projectAll)
         ret = *temp_table->project(&handles);
     else
         ret = *temp_table->project(&handles, &columnsToProject);
 
-    cout << "Returning from evaluate()" << endl;
     return ret;
 }
 
-EvalPlan::~EvalPlan(){
-    delete selectPlan;
-}
+// EvalPlan::~EvalPlan(){
+//     cout << "In EvalPlan dtor" << endl;
+//     // delete selectPlan;
+// }

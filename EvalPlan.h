@@ -16,7 +16,7 @@ class TableScanPlan{
 class SelectPlan{
     public:
         SelectPlan(TableScanPlan* tableScanPlan);
-        ~SelectPlan();
+        // ~SelectPlan();
         EvalPipeline pipeline();
         // void operator=(const SelectPlan& selectPlan);
     private:
@@ -34,7 +34,7 @@ class EvalPlan{
         // If you're projecting all columns, set projectAllColumns to true, and projectionColumns
         // will be ignored no matter what you set it to.
         EvalPlan(bool projectAllColumns, ColumnNames projectionColumns, SelectPlan* select_plan);
-        ~EvalPlan();
+        // ~EvalPlan();
          // Attempt to get the best equivalent evaluation plan
         // EvalPlan optimize();
 

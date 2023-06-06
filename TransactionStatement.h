@@ -1,29 +1,28 @@
-#ifndef __TRANSACTION_STATEMENT_H__
-#define __TRANSACTION_STATEMENT_H__
+#ifndef TRANSACTION_STATEMENT_H
+#define TRANSACTION_STATEMENT_H
 
-// #include "SQLStatement.h"
-// #include "Table.h"
+#include "../sql-parser/src/sql/SQLStatement.h"
 
-// Note: Implementations of constructors and destructors can be found in statements.cpp.
-namespace hsql {
-  // Represents SQL Begin statements.
+  // Represents SQL transaction statements.
   // Example "BEGIN TRANSACTION;"
-  struct TransactionStatement : SQLStatement {
+
+// Precondition: CHECKPOINT should not be used by the client; that is only for the DBMS transaction manager to use
+namespace hsql{
+  struct TransactionStatement : hsql::SQLStatement {
     enum ActionType {
       BEGIN,
       COMMIT,
-      ROLLBACK
+      ROLLBACK,
+      CHECKPOINT
     };
     
-    TransactionStatement(ActionType transactionStatementType);
-    virtual ~TransactionStatement();
-    
-    
+    // Calling SQLStatement with insert just as a placeholder since I don't want to mess with the parser and I had to call
+    // SQLStatement for this to compile
+    TransactionStatement(ActionType transactionStatementType) : SQLStatement(hsql::StatementType::kStmtInsert), type(transactionStatementType){}
+    virtual ~TransactionStatement(){}
 
-    char* name;
-    char* indexName;
     ActionType type;
   };
 
-} // namespace hsql
+}// namespace hsql
 #endif
