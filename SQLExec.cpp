@@ -115,8 +115,9 @@ QueryResult *SQLExec::execute_transaction_command(const TransactionStatement *st
             tm.rollback_transaction();
             return new QueryResult("Successfully executed rollback transaction");
         default:
-            throw SQLExecError("invalid transaction type");
+            return new QueryResult("invalid transaction type");
     }
+    return new QueryResult("invalid transaction type");
 }
 
 /**
@@ -682,4 +683,18 @@ QueryResult *SQLExec::select(const SelectStatement *statement) {
     releaseLock(fdAndID);
     cout << "returning from SQLExec::Select()" << endl;
     return new QueryResult(&allColNames, &allColAttrs, &result, SUCCESS_MESSAGE);
+}
+
+vector<DbRelation*> SQLExec::saveTables(){
+    vector<DbRelation*> tableList;
+    Handles* handles = tables->select(); // get handles to all table names
+
+    // get DbRelations for all the tables
+    for(Handle h : *handles){
+        ValueDict* tableName = tables->project(h);
+        cout << (*tableName)["table_name"].s << endl;
+        DbRelation* table = &tables->get_table((*tableName)["table_name"].s);
+        tableList.push_back(table);
+    }
+    return tableList;
 }

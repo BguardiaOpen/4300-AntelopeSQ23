@@ -11,13 +11,17 @@
 #include <sys/file.h>
 #include <fcntl.h>
 
+// struct TransactionStatement;
+
 using namespace std;
     class TransactionManager{
 
         // A record in the transaction log
         struct TransactionLogRecord{
             int transactionID;      // id of the transaction that executed the statement
-            hsql::SQLStatement statement; // the statement that was executed
+            hsql::SQLStatement* statement; // the SQL statement that was executed, if any
+            hsql::TransactionStatement* transactionStatement; // the transaction statement that was executed, if any
+            vector<DbRelation*>* checkpointTables; // list of DbRelations at a checkpoint, if any
         };
 
         private:
@@ -25,6 +29,7 @@ using namespace std;
             std::vector<int> activeTransactions; // process IDs, starting from 0, of the transactions that are currently running
             int highestTransactionID ; // largest transaction ID that has been created out of all the transactions
             stack<int> transactionStack;
+            vector<DbRelation*> tablesAtCheckpoint; // list of DbRelations representing all the database tables, for checkpoints
 
         public: 
             TransactionManager(){ highestTransactionID = -1; }
@@ -35,8 +40,13 @@ using namespace std;
             void tryToGetLock(int transactionID, hsql::SQLStatement statement, int fd);
             void releaseLock(int transactionID, int fileDescriptor);
             int getCurrentTransactionID();
-            // returns a list of the transactions that are currently active in the databaset system
+
+            // returns a list of the transactions that are currently active in the database system
             vector<int> getActiveTransactions(){ return activeTransactions; } 
+            int retrieveTransaction(int transactionID);
+            void checkpoint(int transactionID, DbRelation& table);
+            // void TransactionManager(::printLog(){)
+
     };
 
     // This is from the instructor code in SQLExec.h

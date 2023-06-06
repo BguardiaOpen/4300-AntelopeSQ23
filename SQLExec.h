@@ -80,6 +80,7 @@ public:
      * @returns           the query result (freed by caller)
      */
     static QueryResult *execute_transaction_command(const TransactionStatement *statement);
+    static vector<DbRelation*> saveTables(); // for a transaction checkpoint, save the current contents of all the tables when the DB is in a consistent state, so we can rollback
 
 protected:
     // the one place in the system that holds the _tables and _indices tables
@@ -117,5 +118,7 @@ protected:
 
     static void
     column_definition(const hsql::ColumnDefinition *col, Identifier &column_name, ColumnAttribute &column_attribute);
+
+
 };
 

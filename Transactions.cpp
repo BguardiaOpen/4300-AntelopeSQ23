@@ -5,7 +5,8 @@ using namespace hsql;
 void TransactionManager::begin_transaction(){
     highestTransactionID++;
     activeTransactions.push_back(highestTransactionID); // add new ID to active transactions
-    TransactionLogRecord record = {highestTransactionID, TransactionStatement(TransactionStatement::BEGIN)};
+    TransactionStatement* stmt = new TransactionStatement(TransactionStatement::BEGIN);
+    TransactionLogRecord record = {highestTransactionID, nullptr, stmt, nullptr};
     transactionLog.push_back(record); // add begin to log
 
     // add a new transaction to the stack
@@ -13,6 +14,13 @@ void TransactionManager::begin_transaction(){
     cout << "Opened transaction level " << transactionStack.size() << endl;
     cout << "ID of the transaction that just begun: " << highestTransactionID << endl;
 }
+
+// void TransactionManager::printLog(){
+//     // for(TransactionLogRecord rec : transactionLog){
+//     //     cout << "ID: " << rec.transactionID 
+//     //          << (rec.statement == nullptr ? " SQL statement is null" << " Statement type: ")
+//     // }
+// }
 
 // commits the current transaction (the one at the top of the stack)
 void TransactionManager::commit_transaction(){
@@ -28,12 +36,20 @@ void TransactionManager::commit_transaction(){
     activeTransactions.erase(it);
 
     // add commit to log
-    TransactionLogRecord record = {id, TransactionStatement(TransactionStatement::COMMIT)};
+    TransactionStatement* stmt = new TransactionStatement(TransactionStatement::COMMIT);
+    TransactionLogRecord record = {id, nullptr, stmt, nullptr};
     transactionLog.push_back(record); 
 
     // update stack
     int oldNumTransactions = transactionStack.size(); // number of transactions before popping stack
     transactionStack.pop();
+
+    tablesAtCheckpoint = SQLExec::saveTables(); // get the state of all the tables since there should be a checkpoint at COMMIT
+
+    // add checkpoint to log
+    TransactionStatement* stmt2 = new TransactionStatement(TransactionStatement::CHECKPOINT);
+    TransactionLogRecord checkpoint = {id, nullptr, stmt2, &tablesAtCheckpoint};
+    transactionLog.push_back(checkpoint); 
 
     cout << "Transaction level " << oldNumTransactions << " committed, " <<
                             (transactionStack.empty() ? "no" : to_string(transactionStack.size()))
@@ -53,12 +69,14 @@ void TransactionManager::rollback_transaction(){
         throw TransactionManagerError("Transaction not found in transaction log");
     }
     
-    // reverse data changes
+    // TODO: reverse data changes
+
     // erase transaction log
     activeTransactions.erase(it); // remove from activeTransactions
 
     // add rollback to log
-    TransactionLogRecord record = {id, TransactionStatement(TransactionStatement::ROLLBACK)};
+    TransactionStatement* stmt = new TransactionStatement(TransactionStatement::ROLLBACK);
+    TransactionLogRecord record = {id, nullptr, stmt, nullptr};
     transactionLog.push_back(record); 
 
     // update stack
@@ -136,22 +154,26 @@ int TransactionManager::getCurrentTransactionID(){
 }
 void TransactionManager::checkpoint(int transactionID, DbRelation& table)
 {
-    vector<int> transArr;
-    transArr.push_back(transactionID);
+    // vector<int> transArr;
+    // transArr.push_back(transactionID);
     
-    vector<DbRelation table> tableArr;
-    tableArr.push_back(tableArr);
+    // vector<DbRelation> tableArr;
+    // tableArr.push_back(table);
+
+    // get all the tables at the 
+    tablesAtCheckpoint = SQLExec::saveTables();
 }
 
 int TransactionManager::retrieveTransaction(int transactionID)
 {
     int id = 0;
-    for(int i = 0; i < transArr.size(); i++)
-    {
-        if(transArr[i] == transactionID)
-        {
-            id = transactionID;
-        }
-    }
+    // for(int i = 0; i < transArr.size(); i++)
+    // {
+    //     if(transArr[i] == transactionID)
+    //     {
+    //         id = transactionID;
+    //     }
+    // }
     return id;
 }
+
