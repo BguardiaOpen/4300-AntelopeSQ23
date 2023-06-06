@@ -7,7 +7,7 @@ DB Relation Manager project for CPSC4300 at Seattle U, Spring 2023, Project Ante
 Executes INSERT and SELECT statements, and contains the structure for BEGIN / COMMIT / ROLLBACK of transactions.
 
 ### Milestone 6
-Builds off of Milestone 5 and creates locks that handle transactions 
+Builds off of Milestone 5 and implements locks that handle multiple transactions running concurrently. Users can execute SQL statements inside transactions by entering "BEGIN TRANSACTION" and then entering SQL statements.
 
 ## Installation
 1. Clone the repository on CS1
