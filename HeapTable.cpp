@@ -42,7 +42,6 @@ void HeapTable::drop() {
 //as above, so below
 void HeapTable::open() {
     file.open();
-    cout << "returning from HeapTable::open" << endl;
 }
 
 //closes the table
@@ -95,7 +94,6 @@ Handles *HeapTable::select() {
 
     // cout << "returning from empty select" << endl;
     // return handles;
-    cout << "In empty select" << endl;
     return select(nullptr);
 }
 

@@ -87,24 +87,18 @@ BlockIDs* HeapFile::block_ids() {
 // }
 
 void HeapFile::db_open(uint flags) {
-  cout << "In db_open" << endl;
   //handle closed state
   if(!this->closed){
-    cout << "Table already open. returning" << endl;
     return;
   }
 
-  cout << "setting rec length" << endl;
   //set block size and open db
   this->db.set_re_len(DbBlock::BLOCK_SZ);
 
-  cout << "Passed set_re_len" << endl;
   if(flags == 0)
     this->db.open(NULL, this->dbfilename.c_str(), NULL, DB_RECNO, 0, 0644);  
   else
     this->db.open(NULL, this->dbfilename.c_str(), NULL, DB_RECNO, flags, 0644);
-
-  cout << "Called berkeley open" << endl;
 
   //intialize db statisitcs and set last block
   if(flags == 0) {
@@ -116,19 +110,15 @@ void HeapFile::db_open(uint flags) {
 
   //set closed to false to indicate db is open
   this->closed = false;
-
-  cout << "exiting open" << endl;
 }
 
 // ATTRIBUTION: We copied this method from Professor Lundeen's solution repo
 uint32_t HeapFile::get_block_count() {
-    cout << endl << "In getBlockCount" << endl;
     DB_BTREE_STAT *stat;
     this->db.stat(nullptr, &stat, DB_FAST_STAT);
-    uint32_t bt_ndata = stat->bt_ndata;
+    uint32_t bt_ndata = stat->bt_ndata; 
     free(stat);
 
-    cout << "Returning from getBlockCount" << endl;
     return bt_ndata;
 }
 

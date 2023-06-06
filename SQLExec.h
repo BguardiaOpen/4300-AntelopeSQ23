@@ -108,7 +108,12 @@ protected:
 
     static QueryResult *select(const hsql::SelectStatement *statement);
 
-    
+    static pair<int, int> requestLock(SQLStatement* stmt, Identifier tableToAccess);
+
+    // If a transaction is executing and has a lock, this releases the lock. If no transactions, does nothing.
+    // @param fdAndID: a pair with the first element being the file descriptor of the DB file being accessed by the statement,
+    //                 and the second element being the ID of the transaction that's executing a statement
+    static void releaseLock(pair<int, int> fdAndID);
 
     static void
     column_definition(const hsql::ColumnDefinition *col, Identifier &column_name, ColumnAttribute &column_attribute);

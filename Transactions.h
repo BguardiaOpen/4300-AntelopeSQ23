@@ -34,7 +34,7 @@ using namespace std;
             int getFD(Identifier tableName);
             void tryToGetLock(int transactionID, hsql::SQLStatement statement, int fd);
             void releaseLock(int transactionID, int fileDescriptor);
-
+            int getCurrentTransactionID();
             // returns a list of the transactions that are currently active in the databaset system
             vector<int> getActiveTransactions(){ return activeTransactions; } 
     };

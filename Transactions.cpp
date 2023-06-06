@@ -82,7 +82,7 @@ int TransactionManager::getFD(Identifier tableName){
     int fd = open(filename.c_str(), O_RDONLY); // get the file descriptor
 
     if(fd == -1)
-        throw TransactionManagerError("Error in getFD(): "+errno);
+        throw TransactionManagerError("Error: failed to get a file descriptor for table "+tableName);
     
 
     return fd;
@@ -107,7 +107,7 @@ void TransactionManager::tryToGetLock(int transactionID, SQLStatement statement,
             throw TransactionManagerError("Error: " + errno);
         }
     }else{
-        cout << "Successfully got the lock" << endl;
+        cout << "Successfully got the lock on the file with FD" << fd << endl;
     }
 }
 
@@ -127,4 +127,10 @@ void TransactionManager::releaseLock(int transactionID, int fileDescriptor){
     if(errorCode == -1)
         throw TransactionManagerError("Error with closing the FD: " + errno);
     else cout << "Successfully closed the file" << endl;
+}
+
+// returns ID of the transaction that's currently executing, which is the one
+// most recently pushed to the stack. Returns -1 if there are no transactions executing
+int TransactionManager::getCurrentTransactionID(){
+    return (transactionStack.empty() ? -1 : transactionStack.top());
 }
