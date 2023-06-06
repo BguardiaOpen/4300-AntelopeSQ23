@@ -39,6 +39,8 @@ export PYTHONPATH=/usr/local/db6/lib/site-packages:$PYTHONPATH
 
 ## Milestone 5/6 Example
 
+```
+
 #Instance 1:
 
 SQL> create table foo (id int, data text)
@@ -100,6 +102,8 @@ id data
 2 "another two" 
 4 "four" 
 successfully returned 4 rows
+
+```
 
 ## Example
 
